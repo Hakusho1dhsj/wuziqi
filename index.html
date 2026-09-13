@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>五子棋</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    font-family: -apple-system, 'PingFang SC', sans-serif;
+    background: linear-gradient(160deg, #0f0c29, #302b63, #24243e);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 12px;
+    overflow-x: hidden;
+}
+
+/* 漂浮的彩色光球 */
+.orb {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(60px);
+    opacity: 0.5;
+    pointer-events: none;
+    animation: float 8s ease-in-out infinite alternate;
+}
+.orb1 { width: 260px; height: 260px; background: #ff6b9d; top: -60px; left: -60px; }
+.orb2 { width: 240px; height: 240px; background: #4facfe; bottom: -60px; right: -40px; animation-delay: 2s; }
+.orb3 { width: 200px; height: 200px; background: #a18cd1; top: 45%; left: 65%; animation-delay: 4s; }
+@keyframes float {
+    from { transform: translateY(-18px); }
+    to { transform: translateY(18px); }
+}
+
+/* 音效按钮 */
+#muteBtn {
+    position: fixed;
+    top: 14px;
+    right: 14px;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.3);
+    background: rgba(255,255,255,0.15);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    font-size: 20px;
+    cursor: pointer;
+    z-index: 50;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.4);
+    transition: transform 0.2s;
+}
+#muteBtn:active { transform: scale(0.9); }
+
+#container { width: 100%; max-width: 500px; text-align: center; position: relative; z-index: 10; }
+
+/* iOS 液态玻璃卡片 */
+.screen {
+    background: rgba(255,255,255,0.10);
+    backdrop-filter: blur(24px) saturate(150%);
+    -webkit-backdrop-filter: blur(24px) saturate(150%);
+    border: 1px solid rgba(255,255,255,0.22);
+    border-radius: 26px;
+    padding: 26px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.25);
+}
+.hidden { display: none; }
+
+h1 {
+    color: #fff;
+    font-size: 32px;
+    letter-spacing: 10px;
+    margin-bottom: 6px;
+    text-shadow: 0 2px 16px rgba(255,255,255,0.35);
+}
+h2 { color: #fff; font-size: 20px; margin-bottom: 18px; letter-spacing: 2px; }
+.sub { color: rgba(255,255,255,0.5); font-size: 11px; letter-spacing: 5px; margin-bottom: 22px; }
+.maker-name {
+    font-size: 34px;
+    color: #fff;
+    font-weight: 700;
+    margin: 26px 0;
+    letter-spacing: 5px;
+    text-shadow: 0 0 24px rgba(255,255,255,0.5);
+}
+
+/* iOS 玻璃按钮 */
+.big-btn {
+    display: block;
+    width: 82%;
+    margin: 11px auto;
+    padding: 15px;
+    font-size: 16px;
+    border: 1px solid rgba(255,255,255,0.28);
+    border-radius: 18px;
+    cursor: pointer;
+    color: #fff;
+    font-weight: 600;
+    letter-spacing: 2px;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 6px 18px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.45);
+    transition: all 0.2s;
+}
+.big-btn:active { transform: scale(0.96); }
+.btn-green  { background: linear-gradient(135deg, rgba(48,209,88,0.55), rgba(48,209,88,0.22)); }
+.btn-red    { background: linear-gradient(135deg, rgba(255,69,58,0.55), rgba(255,69,58,0.22)); }
+.btn-blue   { background: linear-gradient(135deg, rgba(10,132,255,0.55), rgba(10,132,255,0.22)); }
+.btn-teal   { background: linear-gradient(135deg, rgba(48,176,199,0.55), rgba(48,176,199,0.22)); }
+.btn-orange { background: linear-gradient(135deg, rgba(255,159,10,0.55), rgba(255,159,10,0.22)); }
+.btn-purple { background: linear-gradient(135deg, rgba(175,82,222,0.55), rgba(175,82,222,0.22)); }
+
+.small-btn {
+    margin-top: 14px;
+    padding: 11px 28px;
+    font-size: 13px;
+    border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 22px;
+    cursor: pointer;
+    color: #fff;
+    font-weight: 600;
+    background: rgba(255,255,255,0.14);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.4);
+}
+.small-btn:active { transform: scale(0.95); }
+
+#status {
+    color: #fff;
+    font-size: 14px;
+    margin-bottom: 10px;
+    padding: 10px;
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 14px;
+}
+#board {
+    display: block;
+    margin: 0 auto;
+    background: rgba(18,18,24,0.9);
+    border-radius: 12px;
+    cursor: pointer;
+    max-width: 100%;
+    box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
+}
+.controls {
+    margin-top: 12px;
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+.ctrl {
+    padding: 10px 16px;
+    font-size: 13px;
+    border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 22px;
+    cursor: pointer;
+    color: #fff;
+    font-weight: 600;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.4);
+}
+.ctrl:active { transform: scale(0.95); }
+
+/* 胜利弹窗 */
+#overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.4);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 100;
+}
+#overlay.show { display: flex; }
+#winBox {
+    background: rgba(255,255,255,0.16);
+    border: 1px solid rgba(255,255,255,0.3);
+    padding: 30px 44px;
+    border-radius: 26px;
+    text-align: center;
+    box-shadow: 0 16px 48px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.5);
+    animation: pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes pop {
+    from { transform: scale(0.5); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+#winText { font-size: 24px; color: #fff; font-weight: 700; margin-bottom: 16px; }
+#winBox button {
+    padding: 11px 26px;
+    font-size: 14px;
+    background: rgba(255,255,255,0.25);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.4);
+    border-radius: 22px;
+    cursor: pointer;
+    font-weight: 600;
+    margin: 0 4px;
+}
+</style>
+</head>
+<body>
+
+<div class="orb orb1"></div>
+<div class="orb orb2"></div>
+<div class="orb orb3"></div>
+
+<button id="muteBtn" onclick="toggleSound()">🔊</button>
+
+<div id="container">
+
+    <div id="menuScreen" class="screen">
+        <h1>五子棋</h1>
+        <div class="sub">GOMOKU</div>
+        <button class="big-btn btn-green" onclick="showStart()">开始游戏</button>
+        <button class="big-btn btn-red" onclick="quitGame()">退出游戏</button>
+        <button class="big-btn btn-blue" onclick="showMaker()">制作人</button>
+    </div>
+
+    <div id="startScreen" class="screen hidden">
+        <h2>选择模式</h2>
+        <button class="big-btn btn-teal" onclick="showAIDiff()">人机对战</button>
+        <button class="big-btn btn-orange" onclick="start2P()">双人同屏对战</button>
+        <button class="small-btn" onclick="showMenu()">返回</button>
+    </div>
+
+    <div id="aiDiffScreen" class="screen hidden">
+        <h2>选择难度</h2>
+        <button class="big-btn btn-green" onclick="startAI('easy')">入门</button>
+        <button class="big-btn btn-purple" onclick="startAI('normal')">普通</button>
+        <button class="big-btn btn-red" onclick="startAI('hard')">高手</button>
+        <button class="small-btn" onclick="showMenu()">返回</button>
+    </div>
+
+    <div id="makerScreen" class="screen hidden">
+        <h2>制作人</h2>
+        <div class="maker-name">Hakusho</div>
+        <button class="small-btn" onclick="showMenu()">返回</button>
+    </div>
+
+    <div id="gameScreen" class="screen hidden">
+        <div id="status">⚫ 黑棋 回合</div>
+        <canvas id="board"></canvas>
+        <div class="controls">
+            <button class="ctrl" style="background:rgba(142,142,147,0.5)" onclick="showMenu()">返回主页</button>
+            <button class="ctrl" style="background:rgba(255,69,58,0.5)" onclick="resetGame()">重新开始</button>
+            <button class="ctrl" style="background:rgba(10,132,255,0.5)" onclick="undoMove()">悔棋</button>
+        </div>
+    </div>
+
+</div>
+
+<div id="overlay">
+    <div id="winBox">
+        <div id="winText"></div>
+        <button onclick="resetGame()">再来一局</button>
+        <button onclick="closeOverlay()">关闭</button>
+    </div>
+</div>
+
+<script>
+// ---------- 音效 ----------
+var audioOn = true;
+var actx = null;
+
+function initAudio() {
+    try {
+        if (!actx) {
+            var AC = window.AudioContext || window.webkitAudioContext;
+            if (AC) actx = new AC();
+        }
+        if (actx && actx.state === 'suspended') actx.resume();
+    } catch (e) {}
+}
+
+function tone(freq, dur, delay, type, vol) {
+    if (!audioOn || !actx) return;
+    try {
+        var t0 = actx.currentTime + (delay || 0);
+        var o = actx.createOscillator();
+        var g = actx.createGain();
+        o.type = type || 'sine';
+        o.frequency.setValueAtTime(freq, t0);
+        g.gain.setValueAtTime(vol || 0.25, t0);
+        g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+        o.connect(g);
+        g.connect(actx.destination);
+        o.start(t0);
+        o.stop(t0 + dur + 0.05);
+    } catch (e) {}
+}
+
+function sfxTap() { tone(1200, 0.08, 0, 'triangle', 0.12); }
+function sfxDrop(color) {
+    var base = (color === 1) ? 620 : 760;
+    tone(base, 0.06, 0, 'sine', 0.4);
+    tone(base * 0.5, 0.2, 0.01, 'sine', 0.25);
+}
+function sfxWin() {
+    tone(523, 0.15, 0, 'triangle', 0.3);
+    tone(659, 0.15, 0.12, 'triangle', 0.3);
+    tone(784, 0.15, 0.24, 'triangle', 0.3);
+    tone(1047, 0.4, 0.36, 'triangle', 0.3);
+}
+function sfxLose() {
+    tone(392, 0.25, 0, 'sine', 0.3);
+    tone(330, 0.3, 0.18, 'sine', 0.3);
+    tone(262, 0.5, 0.38, 'sine', 0.3);
+}
+function sfxDraw() {
+    tone(440, 0.25, 0, 'sine', 0.25);
+    tone(440, 0.25, 0.25, 'sine', 0.25);
+}
+function sfxUndo() {
+    tone(900, 0.1, 0, 'sine', 0.2);
+    tone(700, 0.12, 0.08, 'sine', 0.2);
+}
+
+function toggleSound() {
+    audioOn = !audioOn;
+    document.getElementById('muteBtn').textContent = audioOn ? '🔊' : '🔇';
+    if (audioOn) { initAudio(); sfxTap(); }
+}
+
+// ---------- 页面切换 ----------
+var allScreens = ['menuScreen', 'startScreen', 'aiDiffScreen', 'makerScreen', 'gameScreen'];
+
+function show(id) {
+    initAudio();
+    sfxTap();
+    for (var i = 0; i < allScreens.length; i++) {
+        document.getElementById(allScreens[i]).classList.add('hidden');
+    }
+    document.getElementById(id).classList.remove('hidden');
+}
+
+function showMenu() { show('menuScreen'); }
+function showStart() { show('startScreen'); }
+function showAIDiff() { show('aiDiffScreen'); }
+function showMaker() { show('makerScreen'); }
+function closeOverlay() {
+    document.getElementById('overlay').classList.remove('show');
+}
+
+function quitGame() {
+    initAudio();
+    sfxTap();
+    window.close();
+    setTimeout(function () {
+        alert('浏览器限制了自动关闭，请手动关闭此页面');
+    }, 300);
+}
+
+// ---------- 游戏数据 ----------
+var N = 15;
+var CELL = 32;
+var PAD = 20;
+
+var board = [];
+var current = 1;
+var moves = [];
+var gameOver = false;
+var isAI = false;
+var aiThinking = false;
+var difficulty = 'normal';
+var canvas, ctx;
+
+function setupCanvas() {
+    canvas = document.getElementById('board');
+    ctx = canvas.getContext('2d');
+    var size = PAD * 2 + CELL * (N - 1);
+    canvas.width = size;
+    canvas.height = size;
+    canvas.addEventListener('click', onBoardClick);
+}
+
+function makeEmptyBoard() {
+    board = [];
+    for (var r = 0; r < N; r++) {
+        var row = [];
+        for (var c = 0; c < N; c++) {
+            row.push(0);
+        }
+        board.push(row);
+    }
+}
+
+function resetGame() {
+    initAudio();
+    makeEmptyBoard();
+    current = 1;
+    moves = [];
+    gameOver = false;
+    aiThinking = false;
+    closeOverlay();
+    drawAll();
+    updateStatus();
+}
+
+// ---------- 绘制 ----------
+function drawAll() {
+    ctx.fillStyle = 'rgba(18,18,24,0.95)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+    ctx.lineWidth = 1;
+    for (var i = 0; i < N; i++) {
+        var p = PAD + i * CELL;
+        ctx.beginPath();
+        ctx.moveTo(PAD, p);
+        ctx.lineTo(canvas.width - PAD, p);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(p, PAD);
+        ctx.lineTo(p, canvas.height - PAD);
+        ctx.stroke();
+    }
+
+    ctx.fillStyle = 'rgba(255,255,255,0.75)';
+    var pts = [3, 7, 11];
+    for (var a = 0; a < 3; a++) {
+        for (var b = 0; b < 3; b++) {
+            ctx.beginPath();
+            ctx.arc(PAD + pts[b] * CELL, PAD + pts[a] * CELL, 3, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+
+    for (var r = 0; r < N; r++) {
+        for (var c = 0; c < N; c++) {
+            if (board[r][c] !== 0) {
+                drawStone(r, c, board[r][c]);
+            }
+        }
+    }
+
+    if (moves.length > 0) {
+        var last = moves[moves.length - 1];
+        ctx.beginPath();
+        ctx.arc(PAD + last.c * CELL, PAD + last.r * CELL, 4, 0, Math.PI * 2);
+        ctx.fillStyle = '#e74c3c';
+        ctx.fill();
+    }
+}
+
+function drawStone(r, c, color) {
+    var x = PAD + c * CELL;
+    var y = PAD + r * CELL;
+    ctx.beginPath();
+    ctx.arc(x, y, 12, 0, Math.PI * 2);
+    if (color === 1) {
+        ctx.fillStyle = '#050508';
+    } else {
+        ctx.fillStyle = '#f5f5f7';
+    }
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    // 高光
+    ctx.beginPath();
+    ctx.arc(x - 4, y - 4, 3, 0, Math.PI * 2);
+    ctx.fillStyle = (color === 1) ? 'rgba(255,255,255,0.18)' : 'rgba(160,160,180,0.5)';
+    ctx.fill();
+}
+
+// ---------- 下棋 ----------
+function onBoardClick(e) {
+    if (gameOver || aiThinking) return;
+    if (isAI && current === 2) return;
+    initAudio();
+
+    var rect = canvas.getBoundingClientRect();
+    var sx = canvas.width / rect.width;
+    var sy = canvas.height / rect.height;
+    var x = (e.clientX - rect.left) * sx;
+    var y = (e.clientY - rect.top) * sy;
+
+    var c = Math.round((x - PAD) / CELL);
+    var r = Math.round((y - PAD) / CELL);
+    if (r < 0 || r >= N || c < 0 || c >= N) return;
+    if (board[r][c] !== 0) return;
+
+    placeStone(r, c);
+}
+
+function placeStone(r, c) {
+    board[r][c] = current;
+    moves.push({ r: r, c: c });
+    sfxDrop(current);
+    drawAll();
+
+    if (checkWin(r, c, current)) {
+        gameOver = true;
+        if (isAI) {
+            if (current === 1) { sfxWin(); } else { sfxLose(); }
+        } else {
+            sfxWin();
+        }
+        showWin(current);
+        return;
+    }
+    if (moves.length === N * N) {
+        gameOver = true;
+        sfxDraw();
+        document.getElementById('winText').textContent = '平局！';
+        document.getElementById('overlay').classList.add('show');
+        return;
+    }
+
+    current = 3 - current;
+    updateStatus();
+
+    if (isAI && current === 2) {
+        aiThinking = true;
+        setTimeout(aiTurn, 350);
+    }
+}
+
+function aiTurn() {
+    if (gameOver) return;
+    var pos = findBestMove();
+    aiThinking = false;
+    if (!pos) return;
+    placeStone(pos.r, pos.c);
+}
+
+// ---------- 胜负判断 ----------
+function checkWin(r, c, color) {
+    var dirs = [[1, 0], [0, 1], [1, 1], [1, -1]];
+    for (var d = 0; d < 4; d++) {
+        var dr = dirs[d][0];
+        var dc = dirs[d][1];
+        var count = 1;
+        var i;
+        i = 1;
+        while (r + dr * i >= 0 && r + dr * i < N &&
+               c + dc * i >= 0 && c + dc * i < N &&
+               board[r + dr * i][c + dc * i] === color) {
+            count++;
+            i++;
+        }
+        i = 1;
+        while (r - dr * i >= 0 && r - dr * i < N &&
+               c - dc * i >= 0 && c - dc * i < N &&
+               board[r - dr * i][c - dc * i] === color) {
+            count++;
+            i++;
+        }
+        if (count >= 5) return true;
+    }
+    return false;
+}
+
+// ---------- 状态文字 ----------
+function updateStatus() {
+    var el = document.getElementById('status');
+    if (isAI) {
+        el.textContent = (current === 1) ? '⚫ 你的回合' : '⚪ AI 思考中...';
+    } else {
+        el.textContent = (current === 1) ? '⚫ 黑棋回合' : '⚪ 白棋回合';
+    }
+}
+
+function showWin(color) {
+    var name;
+    if (isAI) {
+        name = (color === 1) ? '🏆 你赢了！' : '🤖 AI 赢了！';
+    } else {
+        name = (color === 1) ? '⚫ 黑棋获胜！' : '⚪ 白棋获胜！';
+    }
+    document.getElementById('winText').textContent = name;
+    document.getElementById('overlay').classList.add('show');
+}
+
+// ---------- 悔棋 ----------
+function undoMove() {
+    if (aiThinking || moves.length === 0) return;
+    initAudio();
+    sfxUndo();
+
+    if (isAI) {
+        if (moves.length % 2 === 0) {
+            moves.pop();
+            moves.pop();
+        } else {
+            moves.pop();
+        }
+        current = 1;
+    } else {
+        moves.pop();
+        current = (moves.length % 2 === 0) ? 1 : 2;
+    }
+
+    makeEmptyBoard();
+    for (var i = 0; i < moves.length; i++) {
+        board[moves[i].r][moves[i].c] = (i % 2 === 0) ? 1 : 2;
+    }
+    gameOver = false;
+    closeOverlay();
+    drawAll();
+    updateStatus();
+}
+
+// ---------- AI ----------
+function scoreLine(r, c, dr, dc, color) {
+    var count = 1;
+    var open = 0;
+    var i = 1;
+    var nr, nc;
+
+    while (r + dr * i >= 0 && r + dr * i < N &&
+           c + dc * i >= 0 && c + dc * i < N &&
+           board[r + dr * i][c + dc * i] === color) {
+        count++;
+        i++;
+    }
+    nr = r + dr * i;
+    nc = c + dc * i;
+    if (nr >= 0 && nr < N && nc >= 0 && nc < N && board[nr][nc] === 0) open++;
+
+    i = 1;
+    while (r - dr * i >= 0 && r - dr * i < N &&
+           c - dc * i >= 0 && c - dc * i < N &&
+           board[r - dr * i][c - dc * i] === color) {
+        count++;
+        i++;
+    }
+    nr = r - dr * i;
+    nc = c - dc * i;
+    if (nr >= 0 && nr < N && nc >= 0 && nc < N && board[nr][nc] === 0) open++;
+
+    if (count >= 5) return 100000;
+    if (count === 4) return (open === 2) ? 10000 : (open === 1 ? 1000 : 0);
+    if (count === 3) return (open === 2) ? 800 : (open === 1 ? 100 : 0);
+    if (count === 2) return (open === 2) ? 50 : (open === 1 ? 10 : 0);
+    return open > 0 ? 2 : 0;
+}
+
+function scorePoint(r, c, color) {
+    var dirs = [[1, 0], [0, 1], [1, 1], [1, -1]];
+    var s = 0;
+    for (var d = 0; d < 4; d++) {
+        s += scoreLine(r, c, dirs[d][0], dirs[d][1], color);
+    }
+    return s;
+}
+
+function nearStone(r, c) {
+    for (var dr = -2; dr <= 2; dr++) {
+        for (var dc = -2; dc <= 2; dc++) {
+            var nr = r + dr;
+            var nc = c + dc;
+            if (nr >= 0 && nr < N && nc >= 0 && nc < N && board[nr][nc] !== 0) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+function findBestMove() {
+    if (moves.length === 0) {
+        return { r: 7, c: 7 };
+    }
+
+    var atk = 1.1;
+    var def = 1.0;
+    var noise = 0.5;
+    if (difficulty === 'easy') { atk = 0.5; def = 0.5; noise = 8; }
+    if (difficulty === 'hard') { atk = 1.3; def = 1.8; noise = 0; }
+
+    var best = null;
+    var bestScore = -1;
+    for (var r = 0; r < N; r++) {
+        for (var c = 0; c < N; c++) {
+            if (board[r][c] !== 0) continue;
+            if (!nearStone(r, c)) continue;
+
+            var my = scorePoint(r, c, 2);
+            var you = scorePoint(r, c, 1);
+            var s = my * atk + you * def + Math.random() * noise;
+
+            if (s > bestScore) {
+                bestScore = s;
+                best = { r: r, c: c };
+            }
+        }
+    }
+    return best;
+}
+
+// ---------- 模式入口 ----------
+function startAI(diff) {
+    initAudio();
+    sfxTap();
+    isAI = true;
+    difficulty = diff;
+    show('gameScreen');
+    resetGame();
+}
+
+function start2P() {
+    initAudio();
+    sfxTap();
+    isAI = false;
+    show('gameScreen');
+    resetGame();
+}
+
+// ---------- 启动 ----------
+setupCanvas();
+showMenu();
+</script>
+</body>
+</html>
