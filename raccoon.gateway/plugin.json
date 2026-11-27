@@ -1,8 +1,11 @@
 {
   "manifestVersion": 1,
   "id": "raccoon.gateway",
-  "name": { "default": "Raccoon Gateway", "zh-CN": "小浣熊网关" },
-  "version": "1.0.1",
+  "name": {
+    "default": "Raccoon Gateway",
+    "zh-CN": "小浣熊网关"
+  },
+  "version": "1.0.2",
   "publisher": "raccoon",
   "repository": "https://github.com/Hakusho1dhsj/wuziqi",
   "description": {
@@ -10,15 +13,24 @@
     "zh-CN": "在容器内运行商汤小浣熊（Raccoon Work）的本地 OpenAI 兼容网关，支持账号池轮换、令牌自动续期、每日自动签到，以及扫码与短信登录。"
   },
   "license": "MIT",
-  "engines": { "pluginApi": "^1.0.0" },
+  "engines": {
+    "pluginApi": "^1.0.0"
+  },
   "icon": "icons/icon.png",
-  "runtime": { "type": "javascript", "entry": "dist/main.js", "resident": true },
+  "runtime": {
+    "type": "javascript",
+    "entry": "dist/main.js",
+    "resident": true
+  },
   "contributes": {
     "configPage": "pages/config.html",
     "uiEntries": [
       {
         "id": "panel",
-        "title": { "default": "Raccoon gateway panel", "zh-CN": "小浣熊面板" },
+        "title": {
+          "default": "Raccoon gateway panel",
+          "zh-CN": "小浣熊面板"
+        },
         "slot": "drawer.footer",
         "page": "pages/config.html",
         "icon": "cloud"
@@ -27,7 +39,10 @@
     "providers": [
       {
         "id": "gateway",
-        "name": { "default": "Raccoon Gateway", "zh-CN": "小浣熊网关" },
+        "name": {
+          "default": "Raccoon Gateway",
+          "zh-CN": "小浣熊网关"
+        },
         "description": {
           "default": "Local OpenAI-compatible gateway backed by a SenseNova Raccoon account pool.",
           "zh-CN": "本机 OpenAI 兼容网关，后端是小浣熊账号池。"
@@ -37,12 +52,19 @@
       }
     ],
     "hooks": [
-      { "id": "boot", "event": "app.started", "handler": "hooks.boot" }
+      {
+        "id": "boot",
+        "event": "app.started",
+        "handler": "hooks.boot"
+      }
     ],
     "tools": [
       {
         "id": "status",
-        "title": { "default": "Gateway status", "zh-CN": "网关状态" },
+        "title": {
+          "default": "Gateway status",
+          "zh-CN": "网关状态"
+        },
         "description": {
           "default": "Show the Raccoon gateway run state, actual base URL, API key and account count.",
           "zh-CN": "查看小浣熊网关运行状态、实际地址、API Key 与账号数量。"
@@ -52,7 +74,10 @@
       },
       {
         "id": "checkin",
-        "title": { "default": "Daily check-in", "zh-CN": "每日签到" },
+        "title": {
+          "default": "Daily check-in",
+          "zh-CN": "每日签到"
+        },
         "description": {
           "default": "Run the daily points check-in for all pooled accounts (or the given ids) and report the granted points.",
           "zh-CN": "为账号池（或指定账号）执行每日积分签到，返回本次发放的积分。"
@@ -62,7 +87,10 @@
       },
       {
         "id": "restart",
-        "title": { "default": "Restart gateway", "zh-CN": "重启网关" },
+        "title": {
+          "default": "Restart gateway",
+          "zh-CN": "重启网关"
+        },
         "description": {
           "default": "Restart the Raccoon gateway service in the container.",
           "zh-CN": "重启容器内的小浣熊网关服务。"

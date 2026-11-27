@@ -1,0 +1,11 @@
+{
+  "type": "object",
+  "properties": {
+    "ids": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "只对指定账号 id 签到；省略或空数组表示整个账号池。"
+    }
+  },
+  "additionalProperties": false
+}
