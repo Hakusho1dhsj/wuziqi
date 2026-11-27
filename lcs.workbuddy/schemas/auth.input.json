@@ -1,0 +1,23 @@
+{
+  "type": "object",
+  "properties": {
+    "op": {
+      "type": "string",
+      "enum": [
+        "start",
+        "poll",
+        "cancel"
+      ],
+      "description": "start 取授权地址；poll 轮询结果；cancel 放弃"
+    },
+    "region": {
+      "type": "string",
+      "enum": [
+        "domestic",
+        "international"
+      ],
+      "description": "授权走哪个区域，默认沿用当前设置"
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "WorkBuddy gateway control",
+  "type": "object",
+  "properties": {
+    "op": {
+      "type": "string",
+      "enum": ["status", "start", "stop", "restart", "accounts", "import", "enable", "delete", "refresh-account", "region"],
+      "default": "status",
+      "description": "status 查看运行状态；start/stop/restart 控制网关；accounts 列出账号池；import 批量导入令牌或凭证 JSON；enable 启用/禁用账号；delete 删除账号；refresh-account 刷新账号令牌；region 切换默认区域（只影响默认模型与高亮，模型列表、额度与调用覆盖所有已启用账号的区域）。"
+    },
+    "payload": {
+      "type": "string",
+      "description": "import 时要导入的内容：单个 access_token、Key: Value 文本、凭证 JSON 数组或对象，可多行多条。"
+    },
+    "region": {
+      "type": "string",
+      "enum": ["", "domestic", "international"],
+      "description": "import 时可强制指定区域；region 时为默认区域，传空字符串恢复自动识别。国内外账号同时生效，模型列表始终为完整目录，调用按模型归属选账号、无对应账号时回退现有账号。"
+    },
+    "id": {
+      "type": "string",
+      "description": "enable/delete/refresh-account 的目标账号 id；refresh-account 省略时刷新全部。"
+    },
+    "enabled": {
+      "type": "boolean",
+      "description": "enable 时的目标状态，默认 true。"
+    }
+  },
+  "additionalProperties": false
+}

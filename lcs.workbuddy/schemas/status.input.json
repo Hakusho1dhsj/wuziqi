@@ -1,0 +1,14 @@
+{
+  "type": "object",
+  "properties": {
+    "refresh": {
+      "type": "boolean",
+      "description": "令牌临近过期时是否自动刷新，默认 true"
+    },
+    "quota": {
+      "type": "boolean",
+      "description": "是否同时查询额度，默认 true"
+    }
+  },
+  "additionalProperties": false
+}

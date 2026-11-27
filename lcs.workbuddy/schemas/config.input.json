@@ -1,0 +1,18 @@
+{
+  "type": "object",
+  "properties": {
+    "region": {
+      "type": "string",
+      "enum": [
+        "domestic",
+        "international"
+      ],
+      "description": "临时切换导出用的区域"
+    },
+    "write": {
+      "type": "boolean",
+      "description": "是否把配置写到 export.json"
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,36 @@
+{
+  "type": "object",
+  "properties": {
+    "payload": {
+      "type": "string",
+      "description": "凭证原文：JSON 数组、JSON 对象、Key: Value 文本或裸 token"
+    },
+    "accessToken": {
+      "type": "string"
+    },
+    "refreshToken": {
+      "type": "string"
+    },
+    "expiresAt": {
+      "type": "number",
+      "description": "过期时间，毫秒或秒级时间戳"
+    },
+    "uid": {
+      "type": "string"
+    },
+    "nickname": {
+      "type": "string"
+    },
+    "domain": {
+      "type": "string"
+    },
+    "region": {
+      "type": "string",
+      "enum": [
+        "domestic",
+        "international"
+      ]
+    }
+  },
+  "additionalProperties": false
+}

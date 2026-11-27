@@ -1,0 +1,19 @@
+{
+  "type": "object",
+  "properties": {
+    "scope": {
+      "type": "string",
+      "enum": ["account", "pool"],
+      "description": "account 查当前登录账号，pool 汇总账号池里所有启用账号"
+    },
+    "refresh": {
+      "type": "boolean",
+      "description": "scope=pool 时是否跳过一分钟缓存强制重查，默认 true"
+    },
+    "days": {
+      "type": "number",
+      "description": "若令牌在这么多天内到期则先刷新，缺省不主动刷新"
+    }
+  },
+  "additionalProperties": false
+}

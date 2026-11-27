@@ -1,0 +1,1222 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WorkBuddy 助手</title>
+  <link rel="stylesheet" href="/__aicode/theme.css">
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--aicode-bg, #fff);
+      color: var(--aicode-on-surface, #1a1a1a);
+      font-size: calc(14px * var(--aicode-font-scale, 1));
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    .page { width: 100%; max-width: 900px; margin: 0 auto; padding: 16px 16px 48px; }
+
+    .top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+    h1 { margin: 0 0 4px; font-size: 1.35em; font-weight: 650; letter-spacing: .01em; }
+    .sub { margin: 0; font-size: .85em; opacity: .62; }
+    .actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+    button {
+      font: inherit; border-radius: 9px;
+      border: 1px solid var(--aicode-border, rgba(128,128,128,.32));
+      background: var(--aicode-surface, transparent); color: inherit;
+      padding: 7px 13px; cursor: pointer;
+      transition: opacity .15s, background .15s; white-space: nowrap;
+    }
+    button:hover { background: rgba(128,128,128,.12); }
+    button:disabled { opacity: .45; cursor: default; }
+    button.primary { background: var(--aicode-primary, #2f6fed); border-color: transparent; color: #fff; font-weight: 600; }
+    button.primary:hover { opacity: .9; background: var(--aicode-primary, #2f6fed); }
+    button.danger { color: var(--aicode-error, #d33); border-color: rgba(221,51,51,.4); }
+    button.mini { padding: 4px 9px; font-size: .82em; border-radius: 7px; }
+
+    select.region {
+      font: inherit; padding: 6px 9px; border-radius: 9px;
+      border: 1px solid var(--aicode-border, rgba(128,128,128,.32));
+      background: var(--aicode-surface, transparent); color: inherit;
+    }
+
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(112px, 1fr)); gap: 8px; margin: 16px 0 12px; }
+    .stat {
+      background: var(--aicode-surface, rgba(128,128,128,.06));
+      border: 1px solid var(--aicode-border, rgba(128,128,128,.18));
+      border-radius: 11px; padding: 10px 12px;
+    }
+    .stat .k { font-size: .76em; opacity: .6; margin-bottom: 3px; }
+    .stat .v { font-size: 1.24em; font-weight: 650; line-height: 1.2; word-break: break-all; }
+    .stat .v.small { font-size: .92em; font-weight: 550; }
+    .stat.bad .v { color: var(--aicode-error, #d33); }
+    .stat.warn .v { color: var(--aicode-warning, #c47f00); }
+    .stat.ok .v { color: var(--aicode-success, #1a7f37); }
+
+    .alerts { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+    .alert {
+      display: flex; gap: 9px; align-items: baseline;
+      padding: 8px 11px; border-radius: 9px; font-size: .88em;
+      border-left: 3px solid var(--aicode-warning, #c47f00);
+      background: rgba(196,127,0,.09);
+    }
+    .alert.error { border-left-color: var(--aicode-error, #d33); background: rgba(221,51,51,.09); }
+    .alert.info { border-left-color: var(--aicode-primary, #2f6fed); background: rgba(47,111,237,.08); }
+    .alert.ok { border-left-color: var(--aicode-success, #1a7f37); background: rgba(26,127,55,.08); }
+
+    .card {
+      border: 1px solid var(--aicode-border, rgba(128,128,128,.18));
+      border-radius: 12px; background: var(--aicode-surface, rgba(128,128,128,.03));
+      padding: 13px 14px; margin-bottom: 12px;
+    }
+    .card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+    .card-title { font-weight: 640; font-size: .98em; }
+    .card-title .count { font-weight: 500; opacity: .55; font-size: .88em; margin-left: 5px; }
+
+    .tabs { display: flex; gap: 4px; background: rgba(128,128,128,.1); padding: 3px; border-radius: 10px; }
+    .tab { border: none; background: transparent; padding: 6px 12px; border-radius: 8px; font-size: .88em; opacity: .7; }
+    .tab:hover { background: rgba(128,128,128,.12); }
+    .tab.active { background: var(--aicode-surface, #fff); opacity: 1; font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+
+    .form { display: flex; flex-direction: column; gap: 9px; }
+    .field { display: flex; flex-direction: column; gap: 4px; }
+    .field label { font-size: .8em; opacity: .7; }
+    .field textarea {
+      font: inherit; padding: 7px 10px; border-radius: 9px;
+      border: 1px solid var(--aicode-border, rgba(128,128,128,.32));
+      background: var(--aicode-surface, transparent); color: inherit; width: 100%;
+      min-height: 104px; resize: vertical;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .82em;
+    }
+    .field textarea:focus { outline: 2px solid var(--aicode-primary, #2f6fed); outline-offset: -1px; }
+
+    .list { display: flex; flex-direction: column; gap: 8px; }
+    .row { border: 1px solid var(--aicode-border, rgba(128,128,128,.18)); border-radius: 10px; padding: 10px 11px; }
+    .row-title { font-weight: 620; display: flex; align-items: center; gap: 7px; flex-wrap: wrap; word-break: break-all; }
+    .row-meta { font-size: .82em; opacity: .66; margin-top: 5px; line-height: 1.6; word-break: break-all; }
+    .row-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 9px; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .84em; word-break: break-all; }
+
+    .pill { font-size: .72em; padding: 2px 7px; border-radius: 999px; font-weight: 600; background: rgba(128,128,128,.16); }
+    .pill.ok { color: var(--aicode-success, #1a7f37); background: rgba(26,127,55,.13); }
+    .pill.warn { color: var(--aicode-warning, #a46500); background: rgba(196,127,0,.15); }
+    .pill.error { color: var(--aicode-error, #d33); background: rgba(221,51,51,.14); }
+    .pill.info { color: var(--aicode-primary, #2f6fed); background: rgba(47,111,237,.13); }
+
+    .bar { height: 8px; border-radius: 999px; background: rgba(128,128,128,.18); overflow: hidden; margin: 9px 0 4px; }
+    .bar > i { display: block; height: 100%; border-radius: 999px; background: var(--aicode-primary, #2f6fed); transition: width .3s; }
+    .bar > i.low { background: var(--aicode-error, #d33); }
+
+    .table-wrap { overflow-x: auto; margin: 0 -4px; }
+    table { width: 100%; border-collapse: collapse; font-size: .84em; }
+    th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--aicode-border, rgba(128,128,128,.14)); white-space: nowrap; }
+    th { font-weight: 600; opacity: .6; font-size: .95em; }
+    td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    tbody tr:last-child td { border-bottom: none; }
+
+    .models { display: flex; flex-wrap: wrap; gap: 6px; }
+    .model { font-size: .78em; padding: 4px 9px; border-radius: 8px; background: rgba(128,128,128,.11); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .model b { font-weight: 600; font-family: -apple-system, "PingFang SC", sans-serif; opacity: .6; font-weight: 500; margin-left: 5px; }
+    .model-region { font-style: normal; font-family: -apple-system, "PingFang SC", sans-serif; font-size: .9em; opacity: .72; margin-left: 6px; padding: 1px 5px; border-radius: 5px; background: rgba(128,128,128,.16); }
+
+    .empty { padding: 22px 12px; text-align: center; font-size: .88em; opacity: .55; }
+    .hidden { display: none !important; }
+    .hint { font-size: .78em; opacity: .55; line-height: 1.6; }
+    .out {
+      background: rgba(128,128,128,.08); border-radius: 9px; padding: 10px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .78em;
+      white-space: pre-wrap; word-break: break-all; max-height: 260px; overflow: auto; margin: 0;
+    }
+    .auth-url {
+      background: rgba(47,111,237,.08); border-radius: 9px; padding: 9px 10px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .78em;
+      word-break: break-all; line-height: 1.5;
+    }
+    .spin { display: inline-block; animation: sp 1s linear infinite; }
+    @keyframes sp { to { transform: rotate(360deg); } }
+    .sep { height: 1px; background: var(--aicode-border, rgba(128,128,128,.18)); margin: 12px 0; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header class="top">
+      <div>
+        <h1>WorkBuddy 助手</h1>
+        <p class="sub">账户、额度、成长任务与 provider 配置</p>
+      </div>
+      <div class="actions">
+        <select class="region" id="sel-region" aria-label="区域">
+          <option value="international">国际版</option>
+          <option value="domestic">国内版</option>
+        </select>
+        <button id="btn-refresh">刷新</button>
+        <button id="btn-checkin">每日签到</button>
+        <button id="btn-export" class="primary">导出配置</button>
+      </div>
+    </header>
+
+    <div class="stats" id="stats"></div>
+    <div class="alerts" id="alerts"></div>
+
+    <section class="card">
+      <div class="card-head">
+        <div class="card-title">本地网关<span class="count" id="gw-state">未启动</span></div>
+        <div class="actions">
+          <button class="mini primary" id="btn-gw-start">启动</button>
+          <button class="mini" id="btn-gw-restart">重启</button>
+          <button class="mini danger" id="btn-gw-stop">停止</button>
+        </div>
+      </div>
+      <div id="gw-body"><div class="hint">OpenAI 兼容网关：provider 指向 http://127.0.0.1:18913/v1</div></div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <div class="card-title">账号池<span class="count" id="pool-count"></span></div>
+        <div class="actions">
+          <button class="mini" id="btn-pool-load">刷新列表</button>
+          <button class="mini" id="btn-pool-refresh">刷新令牌</button>
+        </div>
+      </div>
+      <div class="tabs" id="pool-region-tabs">
+        <button class="tab" data-region="international">国外账号</button>
+        <button class="tab" data-region="domestic">国内账号</button>
+      </div>
+      <p class="hint" id="pool-region-hint">国内与国外并列：所有启用账号的区域都参与模型列表、额度查询和对话调用，区域只决定默认模型与高亮。</p>
+      <div class="field">
+        <label for="pool-payload">批量导入账号</label>
+        <textarea id="pool-payload" spellcheck="false" placeholder="粘贴令牌即可批量导入：每行一个 access_token，或整段 App 导出的凭证 JSON / JSON 数组，国内与国外账号可以混在一起"></textarea>
+      </div>
+      <div class="actions">
+        <button class="primary" id="btn-pool-import">导入到账号池</button>
+        <button id="btn-pool-clear">清空</button>
+      </div>
+      <p class="hint">区域按令牌与账号信息自动识别，两边账号可以混在一起导入并同时生效；上面选中的只是默认区域，决定默认模型与高亮。</p>
+      <div class="list" id="pool-body"><div class="empty">还没有账号，粘贴令牌后点「导入到账号池」</div></div>
+    </section>
+
+    <section class="card hidden" id="auth-card">
+      <div class="card-head">
+        <div class="card-title">接入账户</div>
+        <div class="tabs">
+          <button class="tab active" data-auth="device">设备码登录</button>
+          <button class="tab" data-auth="import">导入凭证</button>
+        </div>
+      </div>
+
+      <div class="form" id="form-device">
+        <p class="hint">点「获取授权地址」后到浏览器打开该链接并完成登录，再点「检查登录结果」。全程不需要输入账号密码。</p>
+        <div class="auth-url hidden" id="auth-url"></div>
+        <div class="actions">
+          <button class="primary" id="btn-auth-start">获取授权地址</button>
+          <button id="btn-auth-open" disabled>打开链接</button>
+          <button id="btn-auth-poll" disabled>检查登录结果</button>
+          <button id="btn-auth-cancel" class="hidden">取消</button>
+        </div>
+        <p class="hint" id="auth-status"></p>
+      </div>
+
+      <div class="form hidden" id="form-import">
+        <div class="field">
+          <label for="import-payload">凭证内容</label>
+          <textarea id="import-payload" spellcheck="false" placeholder='粘贴 App 的 WorkBuddy 凭证 JSON（数组也可以），或 access_token 本身'></textarea>
+        </div>
+        <div class="actions">
+          <button class="primary" id="btn-import">导入</button>
+          <button id="btn-import-clear">清空</button>
+        </div>
+        <p class="hint">支持 App 导出的凭证数组、单个 JSON 对象、<span class="mono">Key: Value</span> 文本或裸 access_token。</p>
+      </div>
+    </section>
+
+    <section class="card hidden" id="account-card">
+      <div class="card-head">
+        <div class="card-title">账户</div>
+        <div class="actions">
+          <button class="mini" id="btn-account-refresh">刷新令牌</button>
+          <button class="mini danger" id="btn-logout">退出登录</button>
+        </div>
+      </div>
+      <div id="account-body"></div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <div class="card-title">额度<span class="count" id="quota-count"></span></div>
+        <button class="mini" id="btn-quota">重新查询</button>
+      </div>
+      <div id="quota-body"><div class="empty">还没有查询额度</div></div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <div class="card-title">成长任务<span class="count" id="tasks-count"></span></div>
+        <div class="actions">
+          <button class="mini" id="btn-tasks">加载任务</button>
+          <button class="mini" id="btn-accept-all">接受全部可领</button>
+        </div>
+      </div>
+      <div class="list" id="tasks-body"><div class="empty">点「加载任务」拉取成长中心任务</div></div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <div class="card-title">模型<span class="count" id="models-count"></span></div>
+        <button class="mini" id="btn-models">加载模型</button>
+      </div>
+      <div class="models" id="models-body"><div class="empty">点「加载模型」查看可用模型</div></div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <div class="card-title">Provider 配置<span class="count" id="config-source"></span></div>
+        <div class="actions">
+          <button class="mini" id="btn-config">生成配置</button>
+          <button class="mini" id="btn-config-copy">复制 JSON</button>
+          <button class="mini" id="btn-curl-copy">复制 curl</button>
+        </div>
+      </div>
+      <div id="config-body"><div class="empty">点「生成配置」得到 OpenAI 兼容的 baseUrl、请求头与模型列表</div></div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <div class="card-title">本地状态</div>
+        <button class="mini" id="btn-paths">查看路径</button>
+      </div>
+      <div id="paths-body" class="hint">插件不保存密码，只保存 access_token 与 refresh_token。</div>
+    </section>
+  </div>
+
+  <script src="/__aicode/aicode.js"></script>
+  <script>
+  (function () {
+    'use strict';
+
+    function el(id) { return document.getElementById(id); }
+    function show(node, visible) { if (node) node.classList.toggle('hidden', !visible); }
+    function text(value) { return value === null || value === undefined ? '' : String(value); }
+
+    function toast(message) {
+      if (window.aicode && window.aicode.toast) window.aicode.toast(String(message));
+    }
+
+    function invoke(handler, args) {
+      if (!window.aicode || typeof window.aicode.invoke !== 'function') {
+        return Promise.reject(new Error('未在应用内运行，无法调用插件'));
+      }
+      return window.aicode.invoke(handler, args || {});
+    }
+
+    function copy(value) {
+      if (window.aicode && window.aicode.clipboard && window.aicode.clipboard.write) {
+        return window.aicode.clipboard.write(value)
+          .then(function () { toast('已复制'); })
+          .catch(function () { toast('复制失败'); });
+      }
+      toast('复制不可用');
+    }
+
+    function make(tag, className, content) {
+      var node = document.createElement(tag);
+      if (className) node.className = className;
+      if (content !== undefined && content !== null) node.textContent = text(content);
+      return node;
+    }
+
+    function formatTime(ms) {
+      if (!ms) return '未知';
+      var date = new Date(Number(ms));
+      if (isNaN(date.getTime())) return '未知';
+      function pad(n) { return n < 10 ? '0' + n : String(n); }
+      return date.getFullYear() + '-' + pad(date.getMonth() + 1) + '-' + pad(date.getDate()) +
+        ' ' + pad(date.getHours()) + ':' + pad(date.getMinutes());
+    }
+
+    function relative(ms) {
+      if (!ms) return '';
+      var diff = Number(ms) - Date.now();
+      if (diff <= 0) return '已过期';
+      var days = Math.floor(diff / 86400000);
+      if (days >= 1) return days + ' 天后';
+      var hours = Math.floor(diff / 3600000);
+      if (hours >= 1) return hours + ' 小时后';
+      return Math.max(1, Math.floor(diff / 60000)) + ' 分钟后';
+    }
+
+    function number(value) {
+      var n = Number(value || 0);
+      return Number.isInteger(n) ? String(n) : n.toFixed(1);
+    }
+
+    var state = { account: null, quota: null, poolQuota: null, config: null, authState: '' };
+    var errors = [];
+
+    function syncLoginState(loggedIn) {
+      ['btn-checkin', 'btn-quota', 'btn-tasks', 'btn-accept-all'].forEach(function (id) {
+        el(id).disabled = !loggedIn;
+      });
+      el('btn-account-refresh').disabled = !loggedIn;
+    }
+
+    function addError(message) {
+      if (!message) return;
+      if (errors.indexOf(message) >= 0) return;
+      errors.push(message);
+    }
+
+    function renderAlerts() {
+      var box = el('alerts');
+      box.textContent = '';
+      errors.forEach(function (message) {
+        box.appendChild(make('div', 'alert error', message));
+      });
+      errors = [];
+    }
+
+    function renderStats(status) {
+      var box = el('stats');
+      box.textContent = '';
+      var account = (status && status.account) || null;
+      var quota = state.poolQuota || (status && status.quota) || state.quota;
+
+      function stat(label, value, cls, small) {
+        var node = make('div', 'stat' + (cls ? ' ' + cls : ''));
+        node.appendChild(make('div', 'k', label));
+        node.appendChild(make('div', 'v' + (small ? ' small' : ''), value));
+        box.appendChild(node);
+      }
+
+      if (!account) {
+        stat('状态', '未登录', 'warn');
+        stat('区域', status && status.region ? status.region.displayName : '—');
+        return;
+      }
+      stat('账户', account.nickname || account.uid || '已登录', 'ok', true);
+      if (quota) {
+        stat('剩余额度', number(quota.remaining), quota.remaining > 0 ? 'ok' : 'bad');
+        stat('总额度', number(quota.total));
+      } else {
+        stat('剩余额度', '未查询', 'warn');
+      }
+      var expiresIn = account.expiresInSeconds;
+      if (expiresIn === null || expiresIn === undefined) {
+        stat('令牌到期', '未知', 'warn', true);
+      } else if (expiresIn <= 0) {
+        stat('令牌到期', '已过期', 'bad', true);
+      } else if (expiresIn < 86400) {
+        stat('令牌到期', relative(account.expiresAt), 'warn', true);
+      } else {
+        stat('令牌到期', formatTime(account.expiresAt).slice(0, 10), '', true);
+      }
+      stat('区域', status && status.region ? status.region.displayName : '—', '', true);
+    }
+
+    function renderAccount(status) {
+      var card = el('account-card');
+      var body = el('account-body');
+      var account = status && status.account;
+      if (!account) { show(card, false); state.account = null; return; }
+      state.account = account;
+      show(card, true);
+      body.textContent = '';
+
+      var list = make('div', 'list');
+      var row = make('div', 'row');
+      var title = make('div', 'row-title', account.nickname || '(未命名)');
+      title.appendChild(make('span', 'pill info', account.region === 'domestic' ? '国内版' : '国际版'));
+      row.appendChild(title);
+      row.appendChild(make('div', 'row-meta', 'uid ' + (account.uid || '—')));
+      row.appendChild(make('div', 'row-meta', '域名 ' + (account.domain || '—')));
+      row.appendChild(make('div', 'row-meta', '令牌 ' + (account.accessTokenMasked || '—')));
+      row.appendChild(make('div', 'row-meta',
+        'refresh_token ' + (account.hasRefreshToken ? '已保存' : '缺失') +
+        ' · 到期 ' + formatTime(account.expiresAt) + (account.expiresAt ? '（' + relative(account.expiresAt) + '）' : '')));
+      list.appendChild(row);
+      body.appendChild(list);
+    }
+
+    function renderQuotaNotice(message) {
+      var body = el('quota-body');
+      body.textContent = '';
+      body.appendChild(make('div', 'empty', message));
+    }
+
+    function renderQuota(quota) {
+      var body = el('quota-body');
+      var count = el('quota-count');
+      body.textContent = '';
+      if (!quota) {
+        count.textContent = '';
+        body.appendChild(make('div', 'empty', '还没有查询额度'));
+        return;
+      }
+      if (Array.isArray(quota.accounts)) {
+        state.poolQuota = quota;
+        renderPoolQuota(quota);
+        return;
+      }
+      state.quota = quota;
+      var total = Number(quota.total || 0);
+      var remaining = Number(quota.remaining || 0);
+      var percent = total > 0 ? Math.max(0, Math.min(100, (remaining / total) * 100)) : 0;
+      count.textContent = total > 0 ? number(remaining) + ' / ' + number(total) : '';
+
+      var bar = make('div', 'bar');
+      var fill = make('i', percent < 20 ? 'low' : '');
+      fill.style.width = percent.toFixed(1) + '%';
+      bar.appendChild(fill);
+      body.appendChild(bar);
+      body.appendChild(make('div', 'hint',
+        total > 0 ? '已用 ' + number(Math.max(0, total - remaining)) + '，剩余 ' + percent.toFixed(1) + '%' : '上游未返回额度总量'));
+
+      renderPackageTable(body, quota.packages || []);
+    }
+
+    function renderPackageTable(container, packages) {
+      if (!packages.length) return;
+      var wrap = make('div', 'table-wrap');
+      var table = document.createElement('table');
+      var head = document.createElement('thead');
+      var headRow = document.createElement('tr');
+      ['额度包', '剩余', '总量', '到期'].forEach(function (label) {
+        headRow.appendChild(make('th', '', label));
+      });
+      head.appendChild(headRow);
+      table.appendChild(head);
+      var tbody = document.createElement('tbody');
+      packages.forEach(function (item) {
+        var tr = document.createElement('tr');
+        tr.appendChild(make('td', '', item.name || '—'));
+        tr.appendChild(make('td', 'num', number(item.remaining)));
+        tr.appendChild(make('td', 'num', number(item.total)));
+        tr.appendChild(make('td', '', item.expireAt ? formatTime(item.expireAt) : '—'));
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+      wrap.appendChild(table);
+      container.appendChild(wrap);
+    }
+
+    function renderPoolQuota(pool) {
+      var body = el('quota-body');
+      var count = el('quota-count');
+      var total = Number(pool.total || 0);
+      var remaining = Number(pool.remaining || 0);
+      var percent = total > 0 ? Math.max(0, Math.min(100, (remaining / total) * 100)) : 0;
+      count.textContent = total > 0 ? number(remaining) + ' / ' + number(total) : '';
+
+      var bar = make('div', 'bar');
+      var fill = make('i', percent < 20 ? 'low' : '');
+      fill.style.width = percent.toFixed(1) + '%';
+      bar.appendChild(fill);
+      body.appendChild(bar);
+
+      var note = total > 0
+        ? number(pool.counted || 0) + ' 个启用账号合计：已用 ' + number(Math.max(0, total - remaining)) + '，剩余 ' + percent.toFixed(1) + '%'
+        : '账号池里没有可查询额度的启用账号';
+      if (Number(pool.failed || 0) > 0) note += '（' + pool.failed + ' 个账号查询失败）';
+      body.appendChild(make('div', 'hint', note));
+
+      (pool.accounts || []).forEach(function (account) {
+        var box = make('div', 'list');
+        var row = make('div', 'row');
+        var title = make('div', 'row-title', account.nickname || account.id || '(未命名)');
+        title.appendChild(make('span', 'pill info', account.region === 'domestic' ? '国内账号' : '国外账号'));
+        row.appendChild(title);
+        if (account.error) {
+          row.appendChild(make('div', 'row-meta', '查询失败：' + account.error));
+        } else {
+          row.appendChild(make('div', 'row-meta', '剩余 ' + number(account.remaining) + ' / ' + number(account.total)));
+          renderPackageTable(row, account.packages || []);
+        }
+        box.appendChild(row);
+        body.appendChild(box);
+      });
+    }
+
+    var STATUS_LABEL = {
+      available: '可接受', accepted: '已接受', claimed: '已领取',
+      done: '已完成', finished: '已完成', locked: '未解锁', pending: '进行中'
+    };
+
+    function renderTasks(result) {
+      var body = el('tasks-body');
+      var count = el('tasks-count');
+      body.textContent = '';
+      var tasks = (result && result.tasks) || [];
+      count.textContent = tasks.length ? String(tasks.length) : '';
+      if (!tasks.length) {
+        body.appendChild(make('div', 'empty', '没有返回任务'));
+        return;
+      }
+      tasks.forEach(function (task) {
+        var row = make('div', 'row');
+        var title = make('div', 'row-title', task.title || task.code || '(未命名任务)');
+        var label = STATUS_LABEL[task.status] || task.status || '未知';
+        var cls = task.status === 'claimed' || task.status === 'done' ? 'ok'
+          : task.status === 'locked' ? 'warn' : 'info';
+        title.appendChild(make('span', 'pill ' + cls, label));
+        if (task.locked) title.appendChild(make('span', 'pill warn', '未解锁'));
+        row.appendChild(title);
+        if (task.description) row.appendChild(make('div', 'row-meta', task.description));
+        var meta = ['code ' + (task.code || '—')];
+        if (task.target > 0) meta.push('进度 ' + task.current + '/' + task.target);
+        if (task.rewardCredit) meta.push('积分 ' + task.rewardCredit);
+        if (task.rewardEnergy) meta.push('能量 ' + task.rewardEnergy);
+        row.appendChild(make('div', 'row-meta', meta.join(' · ')));
+
+        var actions = make('div', 'row-actions');
+        if (task.status !== 'accepted' && task.status !== 'claimed' && task.status !== 'done' && !task.locked && task.code) {
+          var accept = make('button', 'mini', '接受');
+          accept.setAttribute('data-action', 'accept');
+          accept.setAttribute('data-code', task.code);
+          accept.addEventListener('click', function () { acceptTask(task.code, accept); });
+          actions.appendChild(accept);
+        }
+        if (task.code && !task.locked) {
+          var claim = make('button', 'mini primary', '领取奖励');
+          claim.setAttribute('data-action', 'claim');
+          claim.setAttribute('data-code', task.code);
+          claim.addEventListener('click', function () { claimTask(task.code, claim); });
+          actions.appendChild(claim);
+        }
+        if (task.jumpUrl) {
+          var open = make('button', 'mini', '打开');
+          open.addEventListener('click', function () { window.open(task.jumpUrl, '_blank'); });
+          actions.appendChild(open);
+        }
+        if (actions.childNodes.length) row.appendChild(actions);
+        body.appendChild(row);
+      });
+    }
+
+    function renderModels(result) {
+      var body = el('models-body');
+      var count = el('models-count');
+      body.textContent = '';
+      var models = ((result && result.models) || []);
+      count.textContent = models.length ? models.length + (result.source === 'snapshot' ? '（内置快照）' : '') : '';
+      if (!models.length) {
+        body.appendChild(make('div', 'empty', '没有返回模型'));
+        return;
+      }
+      var grid = make('div', 'models');
+      models.forEach(function (item) {
+        var node = make('span', 'model', item.id);
+        if (item.regionLabel) node.appendChild(make('i', 'model-region', item.regionLabel));
+        if (item.name && item.name !== item.id) node.appendChild(make('b', '', item.name));
+        grid.appendChild(node);
+      });
+      body.appendChild(grid);
+      var poolLabels = (result.poolRegions || []).map(function (code) {
+        return regionLabelOf(code);
+      });
+      if (poolLabels.length) {
+        body.appendChild(make('div', 'hint', '账号覆盖：' + poolLabels.join('、') + '；目录列出全部 ' + models.length + ' 个模型，调用按模型归属选账号'));
+      } else {
+        body.appendChild(make('div', 'hint', '还没有启用的账号；目录列出全部 ' + models.length + ' 个模型，导入账号后即可调用'));
+      }
+      if (result.hint) body.appendChild(make('div', 'hint', result.hint));
+    }
+
+    function renderConfig(config) {
+      var body = el('config-body');
+      var source = el('config-source');
+      body.textContent = '';
+      if (!config) {
+        source.textContent = '';
+        body.appendChild(make('div', 'empty', '点「生成配置」得到 OpenAI 兼容的 baseUrl、请求头与模型列表'));
+        return;
+      }
+      state.config = config;
+      source.textContent = config.region ? config.region.displayName : '';
+
+      var provider = config.provider || {};
+      var rows = [
+        ['baseUrl', provider.baseUrl],
+        ['完整端点', provider.fullEndpoint],
+        ['apiKey', provider.apiKeyMasked],
+        ['模型数', String((provider.models || []).length)]
+      ];
+      rows.forEach(function (pair) {
+        var row = make('div', 'row');
+        row.appendChild(make('div', 'row-title', pair[0]));
+        row.appendChild(make('div', 'row-meta mono', pair[1] || '—'));
+        body.appendChild(row);
+      });
+
+      var headerRow = make('div', 'row');
+      headerRow.appendChild(make('div', 'row-title', '自定义请求头'));
+      var headerList = provider.customHeaders || [];
+      if (!headerList.length) {
+        headerRow.appendChild(make('div', 'row-meta', '由网关统一注入，无需手填'));
+      }
+      headerList.forEach(function (header) {
+        headerRow.appendChild(make('div', 'row-meta mono', header.name + ': ' + header.value));
+      });
+      body.appendChild(headerRow);
+
+      body.appendChild(make('div', 'hint', 'curl 示例'));
+      var pre = make('pre', 'out', config.curl || '');
+      body.appendChild(pre);
+
+      if (config.notes && config.notes.length) {
+        body.appendChild(make('div', 'sep'));
+        config.notes.forEach(function (note) {
+          body.appendChild(make('div', 'hint', '· ' + note));
+        });
+      }
+      if (config.writtenTo) body.appendChild(make('div', 'hint', '已写入 ' + config.writtenTo));
+    }
+
+    function poolAct(op, extra) {
+      return invoke('ui.gateway', Object.assign({ op: op }, extra || {}));
+    }
+
+    function regionName(account) {
+      if (account && account.region === 'domestic') return '国内账号';
+      if (account && account.region === 'international') return '国外账号';
+      return account && account.regionName ? account.regionName : '区域未知';
+    }
+
+    function regionLabelOf(code) {
+      if (code === 'domestic') return '国内账号';
+      if (code === 'international') return '国外账号';
+      return '未选定';
+    }
+
+    function renderPoolRegion(info) {
+      var active = (info && info.activeRegion) || '';
+      state.activeRegion = active;
+      var options = (info && info.regionOptions) || [];
+      var found = {};
+      options.forEach(function (item) { found[item.region] = item; });
+      Array.prototype.forEach.call(el('pool-region-tabs').querySelectorAll('[data-region]'), function (button) {
+        var code = button.getAttribute('data-region');
+        var option = found[code];
+        button.classList.toggle('active', code === active);
+        button.textContent = regionLabelOf(code) + (option ? ' ' + option.enabled + '/' + option.accounts : '');
+      });
+      var hint = el('pool-region-hint');
+      if (!options.length) {
+        hint.textContent = '网关未运行，区域选择在网关启动后生效。';
+        return;
+      }
+      var current = found[active];
+      hint.textContent = current
+        ? '默认区域：' + current.label + '（' + current.enabled + ' 个启用账号）；两区的账号同时参与模型列表、额度与对话调用。'
+        : '还没有默认区域：先在任一区域启用账号，或点上面的按钮切换。';
+    }
+
+    function switchRegion(code) {
+      if (state.activeRegion === code) { toast('已经是该区域'); return; }
+      var buttons = el('pool-region-tabs').querySelectorAll('[data-region]');
+      Array.prototype.forEach.call(buttons, function (button) { button.disabled = true; });
+      poolAct('region', { region: code })
+        .then(function (result) {
+          toast('已切到' + regionLabelOf((result && result.activeRegion) || code) + '，默认模型按该区域选取');
+          return loadGateway();
+        })
+        .then(function () { return loadPool(); })
+        .then(function () { loadPoolQuota(true); el('btn-models').click(); })
+        .catch(function (error) { toast(errorText(error)); })
+        .then(function () { Array.prototype.forEach.call(buttons, function (button) { button.disabled = false; }); });
+    }
+
+    function renderPool(result) {
+      var body = el('pool-body');
+      var count = el('pool-count');
+      body.textContent = '';
+      var accounts = (result && result.accounts) || [];
+      count.textContent = accounts.length ? accounts.length + ' 个' : '';
+      if (!accounts.length) {
+        body.appendChild(make('div', 'empty', '还没有账号，粘贴令牌后点「导入到账号池」'));
+        return;
+      }
+      var active = state.activeRegion || '';
+      var rank = { domestic: 0, international: 1 };
+      var sorted = accounts.slice().sort(function (a, b) {
+        var ra = a.region === active ? -1 : (rank[a.region] === undefined ? 2 : rank[a.region]);
+        var rb = b.region === active ? -1 : (rank[b.region] === undefined ? 2 : rank[b.region]);
+        return ra - rb;
+      });
+      var group = null;
+      sorted.forEach(function (account) {
+        var label = regionName(account);
+        if (label !== group) {
+          group = label;
+          var dormant = active && account.region && account.region !== active;
+          body.appendChild(make('div', 'hint', label + (dormant ? '（非默认区域，仍参与模型与调用）' : '')));
+        }
+        var row = make('div', 'row');
+        var title = make('div', 'row-title');
+        title.appendChild(make('span', '', account.nickname || account.uid || account.id));
+        title.appendChild(make('i', 'model-region', regionName(account)));
+        if (!account.enabled) title.appendChild(make('i', 'model-region', '已停用'));
+        row.appendChild(title);
+        var meta = [];
+        meta.push('令牌 ' + (account.accessTokenMasked || '—'));
+        if (account.expiresAt) meta.push('到期 ' + formatTime(account.expiresAt));
+        if (account.cooldownUntil && account.cooldownUntil > Date.now()) meta.push('冷却至 ' + formatTime(account.cooldownUntil));
+        if (account.lastUsedAt) meta.push('最近使用 ' + formatTime(account.lastUsedAt));
+        if (account.lastError) meta.push('错误：' + account.lastError);
+        row.appendChild(make('div', 'row-meta', meta.join(' · ')));
+        var actions = make('div', 'row-actions');
+        var toggle = make('button', 'mini', account.enabled ? '停用' : '启用');
+        toggle.addEventListener('click', function () {
+          toggle.disabled = true;
+          poolAct('enable', { id: account.id, enabled: !account.enabled })
+            .then(function () { toast(account.enabled ? '已停用' : '已启用'); return loadPool(); })
+            .then(loadGateway)
+            .catch(function (error) { toast(errorText(error)); toggle.disabled = false; });
+        });
+        actions.appendChild(toggle);
+        var refreshBtn = make('button', 'mini', '刷新令牌');
+        refreshBtn.addEventListener('click', function () {
+          refreshBtn.disabled = true;
+          refreshBtn.textContent = '刷新中…';
+          poolAct('refresh-account', { id: account.id })
+            .then(function (result) {
+              var item = ((result && result.results) || [])[0];
+              toast(item && item.ok === false ? ('刷新失败：' + (item.error || '未知')) : '令牌已刷新');
+              return loadPool();
+            })
+            .catch(function (error) { toast(errorText(error)); })
+            .then(function () { refreshBtn.disabled = false; refreshBtn.textContent = '刷新令牌'; });
+        });
+        actions.appendChild(refreshBtn);
+        var del = make('button', 'mini danger', '删除');
+        del.addEventListener('click', function () {
+          if (!window.confirm('从账号池删除 ' + (account.nickname || account.uid || account.id) + '？')) return;
+          del.disabled = true;
+          poolAct('delete', { id: account.id })
+            .then(function () { toast('已删除'); return loadPool(); })
+            .then(loadGateway)
+            .catch(function (error) { toast(errorText(error)); del.disabled = false; });
+        });
+        actions.appendChild(del);
+        row.appendChild(actions);
+        body.appendChild(row);
+      });
+    }
+
+    function loadPool() {
+      return poolAct('accounts')
+        .then(renderPool)
+        .catch(function (error) { toast(errorText(error)); });
+    }
+
+    function renderGateway(info) {
+      var body = el('gw-body');
+      body.textContent = '';
+      var running = Boolean(info && info.running);
+      var modeText = info && info.mode === 'embedded' ? ' 内嵌'
+        : info && info.mode === 'spawn' ? ' 子进程'
+          : info && info.mode === 'external' ? ' 外部实例'
+            : '';
+      el('gw-state').textContent = running ? ('运行中 · ' + (info.port || '') + modeText) : '未启动';
+      state.gateway = info || null;
+      renderPoolRegion(info);
+      if (!running) {
+        body.appendChild(make('div', 'hint', '网关未运行。点「启动」后把 provider 指向 http://127.0.0.1:' + ((info && info.port) || 18913) + '/v1。'));
+        if (info && info.error) body.appendChild(make('div', 'hint', '错误：' + info.error));
+        return;
+      }
+      var status = (info && info.status) || {};
+      if (info && info.notice) body.appendChild(make('div', 'hint', info.notice));
+      var baseUrl = info.baseUrl || ('http://127.0.0.1:' + info.port + '/v1');
+      var rows = [
+        ['接口地址', baseUrl],
+        ['API Key', status.apiKey || '—'],
+        ['账号', (status.enabledCount || 0) + ' / ' + (status.accountCount || 0) + ' 启用'],
+        ['当前区域', (info && info.activeRegionLabel) || '未选定（自动）'],
+        ['已转发', String(status.requests || 0) + ' 次']
+      ];
+      rows.forEach(function (pair) {
+        var row = make('div', 'row');
+        row.appendChild(make('div', 'row-title', pair[0]));
+        row.appendChild(make('div', 'row-meta mono', pair[1]));
+        body.appendChild(row);
+      });
+      var actions = make('div', 'row-actions');
+      var copyBtn = make('button', 'mini', '复制地址与 Key');
+      copyBtn.addEventListener('click', function () { copy(baseUrl + '\n' + (status.apiKey || '')); });
+      actions.appendChild(copyBtn);
+      body.appendChild(actions);
+      if (status.lastError) body.appendChild(make('div', 'hint', '最近错误：' + status.lastError));
+    }
+
+    function loadGateway() {
+      return invoke('ui.gateway', { op: 'status' })
+        .then(renderGateway)
+        .catch(function (error) { toast(errorText(error)); });
+    }
+
+    function gwAction(op) {
+      var labels = { start: '启动', stop: '停止', restart: '重启' };
+      if (op === 'stop' && !window.confirm('停止本地网关？provider 会立即不可用。')) return;
+      var ids = ['btn-gw-start', 'btn-gw-stop', 'btn-gw-restart'];
+      ids.forEach(function (id) { el(id).disabled = true; });
+      invoke('ui.gateway', { op: op })
+        .then(function (result) {
+          toast(labels[op] + '完成');
+          if (result && result.running) return loadGateway();
+          return loadGateway();
+        })
+        .catch(function (error) { toast(errorText(error)); return loadGateway(); })
+        .then(function () { ids.forEach(function (id) { el(id).disabled = false; }); });
+    }
+
+    function renderPaths(paths) {
+      var body = el('paths-body');
+      body.textContent = '';
+      if (!paths) return;
+      body.appendChild(make('div', 'mono', '目录 ' + paths.dir));
+      body.appendChild(make('div', 'mono', '状态 ' + paths.state + (paths.exists && paths.exists.state ? '（存在）' : '')));
+      body.appendChild(make('div', 'mono', '导出 ' + paths.export + (paths.exists && paths.exists.export ? '（存在）' : '')));
+    }
+
+    function setAuthStatus(message, kind) {
+      var node = el('auth-status');
+      node.textContent = message || '';
+      node.className = 'hint';
+    }
+
+    function loadStatus(options) {
+      var opts = options || {};
+      if (!opts.quiet) el('btn-refresh').disabled = true;
+      return invoke('ui.status', { refresh: opts.refresh !== false, quota: opts.quota !== false })
+        .then(function (status) {
+          (status.errors || []).forEach(addError);
+          renderStats(status);
+          renderAccount(status);
+          show(el('auth-card'), !status.loggedIn);
+          syncLoginState(status.loggedIn);
+          renderAlerts();
+          return status;
+        })
+        .catch(function (error) {
+          addError(errorText(error));
+          renderAlerts();
+        })
+        .then(function () { el('btn-refresh').disabled = false; });
+    }
+
+    function errorText(error) {
+      return String((error && error.message) || error);
+    }
+
+    function acceptTask(code, button) {
+      if (!window.confirm('接受任务 ' + code + ' ？')) return;
+      button.disabled = true;
+      invoke('ui.accept', { codes: [code] })
+        .then(function () { toast('已接受 ' + code); loadTasks(); })
+        .catch(function (error) { toast(errorText(error)); button.disabled = false; });
+    }
+
+    function claimTask(code, button) {
+      if (!window.confirm('领取 ' + code + ' 的奖励？')) return;
+      button.disabled = true;
+      button.textContent = '领取中…';
+      invoke('ui.claim', { code: code })
+        .then(function (result) {
+          if (result && result.already) toast('这个任务已经领过了');
+          else if (result && (result.credit || result.energy)) toast('领取成功：积分 +' + (result.credit || 0) + '，能量 +' + (result.energy || 0));
+          else toast((result && result.message) || '领取请求已完成');
+          if (result && result.quota) renderQuota(result.quota);
+          loadTasks();
+          loadStatus({ quiet: true, refresh: false });
+        })
+        .catch(function (error) { toast(errorText(error)); button.disabled = false; button.textContent = '领取奖励'; });
+    }
+
+    function loadTasks() {
+      var button = el('btn-tasks');
+      button.disabled = true;
+      button.textContent = '加载中…';
+      return invoke('ui.tasks', {})
+        .then(function (result) { renderTasks(result); return result; })
+        .catch(function (error) { addError(errorText(error)); renderAlerts(); })
+        .then(function () { button.disabled = false; button.textContent = '加载任务'; });
+    }
+
+    el('btn-refresh').addEventListener('click', function () { loadStatus(); });
+
+    el('sel-region').addEventListener('change', function (event) {
+      var region = event.target.value;
+      invoke('ui.config.save', { region: region })
+        .then(function () {
+          toast('已切换到' + (region === 'domestic' ? '国内版' : '国际版'));
+          return loadStatus();
+        })
+        .catch(function (error) { toast(errorText(error)); });
+    });
+
+    Array.prototype.forEach.call(document.querySelectorAll('.tab[data-auth]'), function (tab) {
+      tab.addEventListener('click', function () {
+        Array.prototype.forEach.call(document.querySelectorAll('.tab[data-auth]'), function (node) {
+          node.classList.toggle('active', node === tab);
+        });
+        var mode = tab.getAttribute('data-auth');
+        show(el('form-device'), mode === 'device');
+        show(el('form-import'), mode === 'import');
+      });
+    });
+
+    el('btn-auth-start').addEventListener('click', function () {
+      var button = el('btn-auth-start');
+      button.disabled = true;
+      button.textContent = '请求中…';
+      setAuthStatus('正在向 WorkBuddy 申请授权码…');
+      invoke('ui.auth.start', { region: el('sel-region').value })
+        .then(function (result) {
+          state.authState = result.state || '';
+          var box = el('auth-url');
+          box.textContent = result.authUrl || '';
+          show(box, Boolean(result.authUrl));
+          el('btn-auth-open').disabled = !result.authUrl;
+          el('btn-auth-poll').disabled = false;
+          show(el('btn-auth-cancel'), true);
+          setAuthStatus('在浏览器打开授权地址完成登录，然后点「检查登录结果」。');
+        })
+        .catch(function (error) { setAuthStatus('获取授权地址失败：' + errorText(error)); })
+        .then(function () { button.disabled = false; button.textContent = '重新获取授权地址'; });
+    });
+
+    el('btn-auth-open').addEventListener('click', function () {
+      var box = el('auth-url');
+      var url = box ? box.textContent.trim() : '';
+      if (url) window.open(url, '_blank');
+    });
+
+    el('btn-auth-poll').addEventListener('click', function () {
+      var button = el('btn-auth-poll');
+      button.disabled = true;
+      button.textContent = '检查中…';
+      setAuthStatus('正在检查登录结果…');
+      invoke('ui.auth.poll', {})
+        .then(function (result) {
+          if (result && result.pending) {
+            setAuthStatus('还没有完成登录，请先在浏览器授权，然后再点一次。');
+            return;
+          }
+          setAuthStatus('登录成功。');
+          toast('WorkBuddy 登录成功');
+          show(el('form-device'), true);
+          el('auth-status').textContent = '';
+          loadStatus();
+        })
+        .catch(function (error) { setAuthStatus('检查失败：' + errorText(error)); })
+        .then(function () { button.disabled = false; button.textContent = '检查登录结果'; });
+    });
+
+    el('btn-auth-cancel').addEventListener('click', function () {
+      invoke('ui.auth.cancel', {})
+        .then(function () {
+          state.authState = '';
+          show(el('auth-url'), false);
+          el('btn-auth-open').disabled = true;
+          el('btn-auth-poll').disabled = true;
+          show(el('btn-auth-cancel'), false);
+          setAuthStatus('已取消本次授权。');
+        })
+        .catch(function (error) { toast(errorText(error)); });
+    });
+
+    el('btn-import').addEventListener('click', function () {
+      var payload = el('import-payload').value.trim();
+      if (!payload) { toast('先粘贴凭证'); return; }
+      var button = el('btn-import');
+      button.disabled = true;
+      button.textContent = '导入中…';
+      invoke('ui.import', { payload: payload, region: el('sel-region').value })
+        .then(function (result) {
+          toast('已导入 ' + ((result.account && result.account.nickname) || '账户'));
+          (result.warnings || []).forEach(addError);
+          el('import-payload').value = '';
+          show(el('auth-card'), false);
+          return loadStatus();
+        })
+        .catch(function (error) { toast(errorText(error)); renderAlerts(); })
+        .then(function () { button.disabled = false; button.textContent = '导入'; });
+    });
+
+    el('btn-import-clear').addEventListener('click', function () { el('import-payload').value = ''; });
+
+    el('btn-account-refresh').addEventListener('click', function () {
+      var button = el('btn-account-refresh');
+      button.disabled = true;
+      invoke('ui.refresh', {})
+        .then(function () { toast('令牌已刷新'); return loadStatus({ quota: false }); })
+        .catch(function (error) { toast(errorText(error)); })
+        .then(function () { button.disabled = false; });
+    });
+
+    el('btn-logout').addEventListener('click', function () {
+      if (!window.confirm('退出 WorkBuddy？本地保存的令牌会被清除，上游不会吊销。')) return;
+      invoke('ui.logout', {})
+        .then(function () {
+          state.account = null;
+          state.quota = null;
+          state.config = null;
+          renderQuota(null);
+          renderTasks({ tasks: [] });
+          renderModels({ models: [] });
+          renderConfig(null);
+          syncLoginState(false);
+          toast('已退出');
+          return loadStatus({ quota: false });
+        })
+        .catch(function (error) { toast(errorText(error)); });
+    });
+
+    function loadPoolQuota(quiet) {
+      if (!quiet) el('btn-quota').disabled = true;
+      if (!state.poolQuota) renderQuotaNotice('额度查询中…（启用账号较多时可能要十几秒）');
+      return invoke('ui.quota', { scope: 'pool' })
+        .then(function (result) { renderQuota(result); })
+        .catch(function (error) {
+          var text = errorText(error);
+          renderQuotaNotice('额度查询失败：' + text);
+          addError(text);
+          renderAlerts();
+        })
+        .then(function () { el('btn-quota').disabled = false; });
+    }
+
+    el('btn-quota').addEventListener('click', function () { loadPoolQuota(false); });
+
+    el('btn-checkin').addEventListener('click', function () {
+      if (!window.confirm('执行每日签到？国内版会请求签到接口，国际版只会刷新额度。')) return;
+      var button = el('btn-checkin');
+      button.disabled = true;
+      button.textContent = '签到中…';
+      invoke('ui.checkin', {})
+        .then(function (result) {
+          toast((result && result.message) || '签到完成');
+          loadPoolQuota(true);
+          return loadStatus({ quiet: true, refresh: false, quota: false });
+        })
+        .catch(function (error) { toast(errorText(error)); })
+        .then(function () { button.disabled = false; button.textContent = '每日签到'; });
+    });
+
+    el('btn-tasks').addEventListener('click', function () { loadTasks(); });
+
+    el('btn-accept-all').addEventListener('click', function () {
+      var body = el('tasks-body');
+      var codes = Array.prototype.map.call(body.querySelectorAll('button[data-action="accept"]'), function (button) {
+        return button.getAttribute('data-code');
+      }).filter(Boolean);
+      if (!codes.length) { toast('没有可接受的任务'); return; }
+      if (!window.confirm('接受 ' + codes.length + ' 个任务？\n' + codes.join(', '))) return;
+      invoke('ui.accept', { codes: codes })
+        .then(function () { toast('已接受 ' + codes.length + ' 个任务'); loadTasks(); })
+        .catch(function (error) { toast(errorText(error)); });
+    });
+
+    el('btn-models').addEventListener('click', function () {
+      var button = el('btn-models');
+      button.disabled = true;
+      invoke('ui.models', {})
+        .then(function (result) { renderModels(result); return result; })
+        .then(function (result) { ((result && result.warnings) || []).forEach(addError); renderAlerts(); })
+        .catch(function (error) { addError(errorText(error)); renderAlerts(); })
+        .then(function () { button.disabled = false; });
+    });
+
+    el('btn-config').addEventListener('click', function () {
+      var button = el('btn-config');
+      button.disabled = true;
+      invoke('ui.config', { region: el('sel-region').value, write: true })
+        .then(function (config) { renderConfig(config); toast('配置已生成并落盘'); })
+        .catch(function (error) { addError(errorText(error)); renderAlerts(); })
+        .then(function () { button.disabled = false; });
+    });
+
+    el('btn-config-copy').addEventListener('click', function () {
+      if (!state.config) { toast('先生成配置'); return; }
+      copy(JSON.stringify(state.config, null, 2));
+    });
+
+    el('btn-curl-copy').addEventListener('click', function () {
+      if (!state.config) { toast('先生成配置'); return; }
+      copy(state.config.curl || '');
+    });
+
+    el('btn-export').addEventListener('click', function () { el('btn-config').click(); });
+
+    el('btn-gw-start').addEventListener('click', function () { gwAction('start'); });
+    el('btn-gw-stop').addEventListener('click', function () { gwAction('stop'); });
+    el('btn-gw-restart').addEventListener('click', function () { gwAction('restart'); });
+
+    el('btn-paths').addEventListener('click', function () {
+      invoke('ui.paths', {})
+        .then(renderPaths)
+        .catch(function (error) { toast(errorText(error)); });
+    });
+
+    el('btn-pool-import').addEventListener('click', function () {
+      var payload = el('pool-payload').value.trim();
+      if (!payload) { toast('先粘贴令牌或凭证 JSON'); return; }
+      var button = el('btn-pool-import');
+      button.disabled = true;
+      button.textContent = '导入中…';
+      poolAct('import', { payload: payload })
+        .then(function (result) {
+          toast('已导入 ' + ((result && result.imported) || 0) + ' 个账号');
+          el('pool-payload').value = '';
+          renderPool({ accounts: (result && result.pool) || [] });
+          return loadGateway();
+        })
+        .catch(function (error) { toast(errorText(error)); })
+        .then(function () { button.disabled = false; button.textContent = '导入到账号池'; });
+    });
+
+    el('btn-pool-clear').addEventListener('click', function () { el('pool-payload').value = ''; });
+    el('btn-pool-load').addEventListener('click', function () { loadPool(); });
+
+    Array.prototype.forEach.call(el('pool-region-tabs').querySelectorAll('[data-region]'), function (button) {
+      button.addEventListener('click', function () { switchRegion(button.getAttribute('data-region')); });
+    });
+
+    el('btn-pool-refresh').addEventListener('click', function () {
+      var button = el('btn-pool-refresh');
+      if (!window.confirm('刷新账号池里的全部令牌？')) return;
+      button.disabled = true;
+      button.textContent = '刷新中…';
+      poolAct('refresh-account', {})
+        .then(function (result) {
+          var list = (result && result.results) || [];
+          var failed = list.filter(function (item) { return item.ok === false; });
+          toast(failed.length ? ('已刷新 ' + list.length + ' 个，失败 ' + failed.length + ' 个') : ('已刷新 ' + list.length + ' 个账号'));
+          return loadPool();
+        })
+        .catch(function (error) { toast(errorText(error)); })
+        .then(function () { button.disabled = false; button.textContent = '刷新令牌'; });
+    });
+
+    loadGateway();
+    loadPool();
+    loadPoolQuota(true);
+
+    invoke('ui.config.get', {})
+      .then(function (current) {
+        var regionValue = current && current.region;
+        if (regionValue && typeof regionValue === 'object') regionValue = regionValue.code;
+        if (regionValue) el('sel-region').value = regionValue;
+        if (current && current.paths) renderPaths(current.paths);
+        return loadStatus();
+      })
+      .catch(function (error) {
+        addError(errorText(error));
+        renderAlerts();
+        return loadStatus();
+      });
+  })();
+  </script>
+</body>
+</html>

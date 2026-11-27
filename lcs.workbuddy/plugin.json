@@ -1,0 +1,211 @@
+{
+  "manifestVersion": 1,
+  "id": "lcs.workbuddy",
+  "name": "WorkBuddy 助手",
+  "version": "1.0.0",
+  "publisher": "lcs",
+  "repository": "https://github.com/Hakusho1dhsj/wuziqi",
+  "description": "在容器内运行 WorkBuddy（codebuddy.ai / workbuddy.ai）本地 OpenAI 兼容网关：账号池轮换、令牌自动刷新、失败账号冷却，自动注入 WorkBuddy 专有请求头并支持 SSE 流式转发。面板可设备码登录或导入凭证、查看额度与成长任务、每日签到，并把 http://127.0.0.1:18913/v1 直接接进 AiCode 的 provider。",
+  "license": "MIT",
+  "engines": {
+    "pluginApi": "^1.0.0"
+  },
+  "icon": "icons/icon.png",
+  "runtime": {
+    "type": "javascript",
+    "entry": "dist/main.js",
+    "resident": true
+  },
+  "configPage": "pages/workbuddy.html",
+  "contributes": {
+    "tools": [
+      {
+        "id": "gateway",
+        "title": {
+          "zh-CN": "本地网关",
+          "default": "Local gateway"
+        },
+        "description": "控制 WorkBuddy 本地网关与账号池：op=status 查看状态，op=start / stop / restart 启停，op=accounts 列出账号池，op=import 批量导入令牌或凭证 JSON（可同时含国内与国外账号），op=enable / delete / refresh-account 管理单个账号，op=region 切换默认区域（只影响默认模型与高亮，模型列表、额度与对话覆盖所有已启用账号的区域；传空字符串恢复自动）。网关在 127.0.0.1:18913 提供 OpenAI 兼容接口（/v1/models、/v1/chat/completions），模型列表始终返回完整目录（国内外并列）。",
+        "inputSchema": "schemas/gateway.input.json",
+        "handler": "tools.gateway"
+      },
+      {
+        "id": "status",
+        "title": {
+          "zh-CN": "账户状态",
+          "default": "Account status"
+        },
+        "description": "查看 WorkBuddy 当前账户：是否已登录、uid 与昵称、所在区域（国内版 / 国际版）、令牌到期时间、剩余与总额度。需要提前刷新时会在到期前自动换令牌。回答「WorkBuddy 还有多少额度」「登录了没」之前先调用它。",
+        "inputSchema": "schemas/status.input.json",
+        "handler": "tools.status"
+      },
+      {
+        "id": "auth",
+        "title": {
+          "zh-CN": "设备码登录",
+          "default": "Device login"
+        },
+        "description": "WorkBuddy 设备码授权：op=start 取授权地址与 state，在浏览器完成登录后用 op=poll 轮询直到拿到账户，op=cancel 放弃。全程不需要输入账号密码。",
+        "inputSchema": "schemas/auth.input.json",
+        "handler": "tools.auth"
+      },
+      {
+        "id": "import",
+        "title": {
+          "zh-CN": "导入凭证",
+          "default": "Import credentials"
+        },
+        "description": "粘贴 WorkBuddy 凭证：支持 App 导出的凭证 JSON 数组、单个 JSON 对象、Key: Value 文本或裸 access_token。导入后立刻验证额度。",
+        "inputSchema": "schemas/import.input.json",
+        "handler": "tools.import"
+      },
+      {
+        "id": "refresh",
+        "title": {
+          "zh-CN": "刷新令牌",
+          "default": "Refresh token"
+        },
+        "description": "用 refresh_token 换取新的 access_token 并写回本地状态。令牌临近过期时 status 也会自动做这件事。",
+        "inputSchema": "schemas/refresh.input.json",
+        "handler": "tools.refresh"
+      },
+      {
+        "id": "quota",
+        "title": {
+          "zh-CN": "查询额度",
+          "default": "Query quota"
+        },
+        "description": "查询 WorkBuddy 剩余额度与总额度，返回每个额度包的剩余、总量与到期时间。国际版走 workbuddy.ai，国内版走 copilot.tencent.com。",
+        "inputSchema": "schemas/quota.input.json",
+        "handler": "tools.quota"
+      },
+      {
+        "id": "checkin",
+        "title": {
+          "zh-CN": "每日签到",
+          "default": "Daily check-in"
+        },
+        "description": "执行每日签到。国内版走 daily-checkin 接口并回传积分变化；国际版额度由上游自动发放，只刷新额度并返回 supported=false。",
+        "inputSchema": "schemas/checkin.input.json",
+        "handler": "tools.checkin"
+      },
+      {
+        "id": "tasks",
+        "title": {
+          "zh-CN": "成长任务",
+          "default": "Growth tasks"
+        },
+        "description": "列出 WorkBuddy 成长中心任务：code、标题、说明、状态、奖励积分与跳转地址，并给出可领取的 code 列表。",
+        "inputSchema": "schemas/tasks.input.json",
+        "handler": "tools.tasks"
+      },
+      {
+        "id": "accept",
+        "title": {
+          "zh-CN": "接受任务",
+          "default": "Accept tasks"
+        },
+        "description": "批量接受成长任务，参数是要接受的 task code 列表。接受后才能领取奖励。",
+        "inputSchema": "schemas/accept.input.json",
+        "handler": "tools.accept"
+      },
+      {
+        "id": "claim",
+        "title": {
+          "zh-CN": "领取奖励",
+          "default": "Claim reward"
+        },
+        "description": "按任务 code 领取成长任务奖励，返回本次获得的积分与能量；已领取过会返回 already=true 且数量为 0。领取成功后自动刷新额度。",
+        "inputSchema": "schemas/claim.input.json",
+        "handler": "tools.claim"
+      },
+      {
+        "id": "models",
+        "title": {
+          "zh-CN": "模型列表",
+          "default": "Models"
+        },
+        "description": "列出 WorkBuddy 可用模型。优先使用本地网关的模型清单，网关不可用时请求上游模型接口，再回退到内置目录快照（国内 17 个裸 id、国际 34 个 global: 前缀、合计 51 个聊天模型）；始终返回完整目录，不分区域裁剪，调用时按模型归属选账号，归属区域无账号时回退到现有账号。国内外同名的模型展示名带（国内）/（国际）后缀以便区分。",
+        "inputSchema": "schemas/models.input.json",
+        "handler": "tools.models"
+      },
+      {
+        "id": "config",
+        "title": {
+          "zh-CN": "导出 provider 配置",
+          "default": "Export provider config"
+        },
+        "description": "生成 OpenAI 兼容的 provider 配置：baseUrl（到 /v2 为止）、完整端点、apiKey、必需的自定义请求头、模型列表与 curl 示例。插件本身不发起对话请求。可选 write=true 落盘到 export.json。",
+        "inputSchema": "schemas/config.input.json",
+        "handler": "tools.config"
+      },
+      {
+        "id": "logout",
+        "title": {
+          "zh-CN": "退出登录",
+          "default": "Logout"
+        },
+        "description": "清除本地保存的 WorkBuddy 账户、额度与进行中的授权会话。不吊销上游令牌。",
+        "inputSchema": "schemas/logout.input.json",
+        "handler": "tools.logout"
+      }
+    ],
+    "workspaceTools": [
+      {
+        "id": "workbuddy-panel",
+        "title": {
+          "zh-CN": "WorkBuddy 面板",
+          "default": "WorkBuddy panel"
+        },
+        "description": "账户、额度、任务、模型与 provider 配置面板",
+        "icon": "robot",
+        "category": "tools",
+        "pageFile": "pages/workbuddy.html"
+      }
+    ],
+    "uiEntries": [
+      {
+        "id": "workbuddy-settings",
+        "title": {
+          "zh-CN": "WorkBuddy 助手",
+          "default": "WorkBuddy"
+        },
+        "slot": "settings.ai",
+        "page": "pages/workbuddy.html",
+        "icon": "robot"
+      },
+      {
+        "id": "workbuddy-drawer",
+        "title": {
+          "zh-CN": "WorkBuddy",
+          "default": "WorkBuddy"
+        },
+        "slot": "drawer.footer",
+        "page": "pages/workbuddy.html",
+        "icon": "robot"
+      }
+    ],
+    "providers": [
+      {
+        "id": "gateway",
+        "name": {
+          "default": "WorkBuddy Gateway",
+          "zh-CN": "WorkBuddy 网关"
+        },
+        "description": {
+          "default": "Local OpenAI-compatible gateway backed by a WorkBuddy account pool.",
+          "zh-CN": "本机 OpenAI 兼容网关，后端是 WorkBuddy 账号池。模型列表无需密钥即可拉取；对话需在提供商里填面板上的网关 API Key。"
+        },
+        "format": "openai",
+        "baseUrl": "http://127.0.0.1:18913/v1"
+      }
+    ],
+    "hooks": [
+      {
+        "id": "boot",
+        "event": "app.started",
+        "handler": "hooks.boot"
+      }
+    ]
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "type": "object",
+  "properties": {
+    "codes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "要接受的 task code 列表"
+    },
+    "code": {
+      "type": "string",
+      "description": "单个 task code，与 codes 二选一"
+    }
+  },
+  "additionalProperties": false
+}
