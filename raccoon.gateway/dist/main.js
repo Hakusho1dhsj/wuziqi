@@ -47,8 +47,15 @@ async function startService() {
   process.env.RACCOON_GATEWAY_HOME = DATA_DIR;
   process.env.RACCOON_GATEWAY_PORT = String(PORT);
   try {
-    const url = pathToFileURL(ENTRY).href;
-    const module = await import(url);
+    // ESM 按 URL 缓存模块：不带版本号时，插件更新后重启仍会拿到旧模块，
+    // 所以先带时间戳导入；宿主加载器不接受时再回退到裸 URL。
+    const href = pathToFileURL(ENTRY).href;
+    let module;
+    try {
+      module = await import(`${href}?v=${Date.now()}`);
+    } catch {
+      module = await import(href);
+    }
     embedded = module;
     module.startGateway();
     return embedded;

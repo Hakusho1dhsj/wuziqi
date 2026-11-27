@@ -12,8 +12,9 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { Readable, Transform } from 'node:stream';
 import { renderQrSvg } from './qr.mjs';
+import { proxy as proxyUpstream } from './webproxy.mjs';
 
-const VERSION = '1.0.0';
+const VERSION = '1.0.3';
 const UPSTREAM = 'https://xiaohuanxiong.com';
 const AUTH_PREFIX = '/api/web/auth/v1';
 const LLM_PREFIX = '/api/web/llm/v2';
@@ -687,6 +688,135 @@ async function smsVerify(phone, smsCode) {
   return { ok: true, outcome, account: maskAccount(account) };
 }
 
+/**
+ * 网页登录。
+ *
+ * 官方登录页只能通过浏览器打开：`/work/api/web/auth/v1/code/authorize` 未登录时
+ * 302 到 /login，登录完成后才跳 `office-raccoon://auth/callback?code=…`。
+ * 这里把 state 与回调地址都指向网关自己，浏览器一跳回本机就拿到 code；
+ * 若上游把回调固定成 office-raccoon:// 协议（浏览器无法打开），用户可直接
+ * 粘贴地址栏里的整段链接，parseAuthorizationCode 兼容两种输入。
+ */
+const WEB_APPNAME = '办公小浣熊客户端';
+const WEB_CALLBACK_SCHEME = 'office-raccoon://auth/callback';
+const WEB_LOGIN_TTL_MS = 15 * 60 * 1000;
+
+const webLoginSessions = new Map();
+
+function pruneWebSessions() {
+  const cutoff = Date.now() - WEB_LOGIN_TTL_MS;
+  for (const [key, session] of webLoginSessions) {
+    if (session.at < cutoff) webLoginSessions.delete(key);
+  }
+}
+
+function webLoginStart() {
+  pruneWebSessions();
+  const state = crypto.randomBytes(12).toString('hex');
+  // 不带 redirect_uri：dex 里只有 '&state='，原版客户端全靠 login_source=desktop
+  // 让服务端自己回跳 office-raccoon://auth/callback。多传一个未注册的
+  // redirect_uri，登录态下会被拒成站点 404。
+  const query = new URLSearchParams({
+    login_source: 'desktop',
+    appname: WEB_APPNAME,
+    state,
+  });
+  webLoginSessions.set(state, { at: Date.now(), code: '', busy: false });
+  return {
+    state,
+    url: `${UPSTREAM}/work${AUTH_PREFIX}/code/authorize?${query.toString()}`,
+    callbackScheme: WEB_CALLBACK_SCHEME,
+    localCallback: `http://127.0.0.1:${settings.port || 18912}/web-callback`,
+    expiresIn: Math.round(WEB_LOGIN_TTL_MS / 1000),
+  };
+}
+
+function parseAuthorizationCode(raw) {
+  const text = String(raw || '').trim();
+  if (text.length === 0) throw new Error('请粘贴回调链接或授权码');
+  const matched = text.match(/[?&]code=([^&#\s]+)/i);
+  const code = matched ? decodeURIComponent(matched[1]) : text;
+  if (!/^[A-Za-z0-9._~-]{6,512}$/.test(code)) throw new Error('授权码格式不正确，请重新复制');
+  return code;
+}
+
+async function webLoginExchange(rawCode, state) {
+  const code = parseAuthorizationCode(rawCode);
+  const result = await postEnvelope(`${AUTH_PREFIX}/login_with_authorization_code`, {
+    authorization_code: code,
+  });
+  if (result.code !== 0) {
+    if (result.code === 200035) throw new Error('授权码无效或已使用，请重新点「打开授权页面」');
+    throw envelopeError(result, '网页登录换取凭证失败');
+  }
+  const account = accountFromCredential(result.data);
+  const info = await fetchUserInfo(account);
+  if (info.phone) {
+    account.phone = info.phone;
+    account.name = friendlyName(info.phone) || account.name;
+  }
+  if (info.orgCode) account.orgCode = info.orgCode;
+  const outcome = upsertAccount(account);
+  if (state) webLoginSessions.delete(state);
+  log(`网页登录成功 ${account.id}（${outcome}）`);
+  return { ok: true, outcome, account: maskAccount(account) };
+}
+
+async function webLoginPoll(state) {
+  const session = webLoginSessions.get(state);
+  if (!session) return { status: 'unknown', message: '登录会话已失效，请重新点「打开授权页面」' };
+  if (session.busy || !session.code) return { status: 'pending' };
+  session.busy = true;
+  try {
+    return { status: 'success', ...(await webLoginExchange(session.code, state)) };
+  } catch (error) {
+    webLoginSessions.delete(state);
+    return { status: 'failed', message: error.message };
+  }
+}
+
+function webCallbackPage(ok, message) {
+  const tone = ok ? '#1a7f37' : '#cf222e';
+  return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">`
+    + `<meta name="viewport" content="width=device-width, initial-scale=1">`
+    + `<title>小浣熊网页登录</title></head>`
+    + `<body style="font-family:system-ui,sans-serif;padding:32px;line-height:1.7;color:#1f2328">`
+    + `<h2 style="color:${tone};margin:0 0 12px">${ok ? '授权已回传' : '没有拿到授权码'}</h2>`
+    + `<p>${message}</p>`
+    + `<p style="color:#59636e">可以关闭此页面，回到 AiCode 的小浣熊面板查看结果。</p>`
+    + `</body></html>`;
+}
+
+/**
+ * 账号密码登录。
+ *
+ * 手机号与密码都用同一套 AES-128-CFB（随机 IV 前置、base64）加密提交，
+ * 字段名固定 nation_code / phone / password。换到的令牌与扫码、短信完全一致。
+ */
+async function passwordLogin(phone, password) {
+  if (!/^1[3-9]\d{9}$/.test(phone)) throw new Error('请输入有效的 11 位手机号');
+  if (typeof password !== 'string' || password.length === 0) throw new Error('请输入密码');
+  const result = await postEnvelope(`${AUTH_PREFIX}/login_with_password`, {
+    nation_code: '86',
+    phone: encryptPhone(phone),
+    password: encryptPhone(password),
+  });
+  if (result.code !== 0) {
+    if (/password invalid|password error/i.test(`${result.details} ${result.message}`)) {
+      throw new Error('手机号或密码不正确');
+    }
+    throw envelopeError(result, '密码登录失败');
+  }
+  const account = accountFromCredential(result.data, { phone });
+  account.name = friendlyName(phone) || account.name;
+  const info = await fetchUserInfo(account);
+  if (info.orgCode) account.orgCode = info.orgCode;
+  if (info.phone) account.phone = info.phone;
+  const outcome = upsertAccount(account);
+  log(`密码登录成功 ${account.id}（${outcome}）`);
+  return { ok: true, outcome, account: maskAccount(account) };
+}
+
 function applyThinking(body) {
   // 顶层 `reasoning_effort` 上游虽接受但实测无效果，且与 extra_body 同时出现会干扰，
   // 唯一有效的思考控制通道是 `extra_body.thinking`（Anthropic 风格对象）。
@@ -1216,6 +1346,25 @@ const server = http.createServer(async (req, res) => {
       });
     }
 
+    // 浏览器登录后跳回本机，不需要管理密钥：state 本身就是一次性的随机串。
+    if (pathname === '/web-callback') {
+      const state = url.searchParams.get('state') || '';
+      const code = url.searchParams.get('code') || '';
+      const session = state ? webLoginSessions.get(state) : null;
+      res.setHeader('content-type', 'text/html; charset=utf-8');
+      if (!code) {
+        res.writeHead(200);
+        return res.end(webCallbackPage(false, '回调链接里没有 code 参数，请重新发起网页登录。'));
+      }
+      if (!session) {
+        res.writeHead(200);
+        return res.end(webCallbackPage(false, '登录会话已失效，请回到面板重新点「打开授权页面」。'));
+      }
+      session.code = code;
+      res.writeHead(200);
+      return res.end(webCallbackPage(true, '正在用授权码换取凭证，几秒后账号会自动加入账号池。'));
+    }
+
     if (pathname.startsWith('/v1/')) {
       if (!apiAuthorized(req)) return openAiError(res, 401, 'API Key 不正确', 'authentication_error');
 
@@ -1422,7 +1571,43 @@ const server = http.createServer(async (req, res) => {
         }
       }
 
+      if (pathname === '/admin/api/login/password' && req.method === 'POST') {
+        const body = JSON.parse((await readBody(req)).toString('utf8') || '{}');
+        try {
+          const result = await passwordLogin(String(body.phone || '').trim(), String(body.password || ''));
+          return sendJson(res, 200, { ok: true, ...result });
+        } catch (error) {
+          return sendJson(res, 200, { ok: false, message: error.message });
+        }
+      }
+
+      if (pathname === '/admin/api/login/web/start' && req.method === 'POST') {
+        return sendJson(res, 200, { ok: true, ...webLoginStart() });
+      }
+
+      if (pathname === '/admin/api/login/web/poll' && req.method === 'GET') {
+        const state = url.searchParams.get('state') || '';
+        if (state.length === 0) return sendJson(res, 200, { ok: false, status: 'unknown', message: '缺少 state' });
+        return sendJson(res, 200, { ok: true, ...(await webLoginPoll(state)) });
+      }
+
+      if (pathname === '/admin/api/login/web/code' && req.method === 'POST') {
+        const body = JSON.parse((await readBody(req)).toString('utf8') || '{}');
+        try {
+          const result = await webLoginExchange(body.code, body.state || '');
+          return sendJson(res, 200, { ok: true, ...result });
+        } catch (error) {
+          return sendJson(res, 200, { ok: false, message: error.message });
+        }
+      }
+
       return sendJson(res, 404, { ok: false, message: `未知管理接口 ${pathname}` });
+    }
+
+    // 宿主 WebView 的 CSP 不允许 iframe 加载外部源，内嵌浏览器走不通；
+    // 保留 /rp 代理仅用于调试登录页，未知路径仍按 404 处理。
+    if (pathname === '/rp' || pathname.startsWith('/rp/')) {
+      return await handleWebProxy(req, res, url);
     }
 
     return sendJson(res, 404, { ok: false, message: 'not found' });
@@ -1432,6 +1617,34 @@ const server = http.createServer(async (req, res) => {
     res.destroy();
   }
 });
+
+function webLoginResultPage(ok, message) {
+  const tone = ok ? '#1a7f37' : '#cf222e';
+  const payload = JSON.stringify({ type: 'raccoon-web-login', ok, message });
+  return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">`
+    + `<meta name="viewport" content="width=device-width, initial-scale=1"><title>登录结果</title></head>`
+    + `<body style="font-family:system-ui,sans-serif;padding:28px;line-height:1.7;text-align:center">`
+    + `<p style="font-size:32px;margin:0 0 8px">${ok ? '✅' : '⚠️'}</p>`
+    + `<p style="color:${tone};font-size:16px;font-weight:600">${message}</p>`
+    + `<p style="color:#59636e;font-size:13px">可以先关闭这个登录窗口。</p>`
+    + `<script>try{parent.postMessage(${payload},'*')}catch(e){}</script>`
+    + `</body></html>`;
+}
+
+async function handleWebProxy(req, res, url) {
+  const target = url.pathname.replace(/^\/rp/, '') || '/';
+  return proxyUpstream(req, res, url, {
+    path: target,
+    onCode: async (code) => {
+      try {
+        const result = await webLoginExchange(code, '');
+        return webLoginResultPage(true, `登录成功：${result.account.name || result.account.id}`);
+      } catch (error) {
+        return webLoginResultPage(false, error.message);
+      }
+    },
+  });
+}
 
 const host = args.host || '127.0.0.1';
 const startPort = Number.isInteger(args.port) && args.port > 0 ? args.port : settings.requestedPort;

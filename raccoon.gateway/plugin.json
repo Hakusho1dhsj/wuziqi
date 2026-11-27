@@ -5,12 +5,12 @@
     "default": "Raccoon Gateway",
     "zh-CN": "小浣熊网关"
   },
-  "version": "1.0.2",
+  "version": "1.0.3",
   "publisher": "raccoon",
   "repository": "https://github.com/Hakusho1dhsj/wuziqi",
   "description": {
-    "default": "Runs a local OpenAI-compatible gateway for SenseNova Raccoon Work in the container, with a pooled account pool, automatic token refresh, daily check-in, and QR-code / SMS login.",
-    "zh-CN": "在容器内运行商汤小浣熊（Raccoon Work）的本地 OpenAI 兼容网关，支持账号池轮换、令牌自动续期、每日自动签到，以及扫码与短信登录。"
+    "default": "Runs a local OpenAI-compatible gateway for SenseNova Raccoon Work in the container, with a pooled account pool, automatic token refresh, daily check-in, and QR-code, SMS and web login.",
+    "zh-CN": "在容器内运行商汤小浣熊（Raccoon Work）的本地 OpenAI 兼容网关，支持账号池轮换、令牌自动续期、每日自动签到，以及扫码、短信与网页登录。"
   },
   "license": "MIT",
   "engines": {

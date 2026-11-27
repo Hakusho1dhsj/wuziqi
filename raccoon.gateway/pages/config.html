@@ -56,6 +56,7 @@
       <div class="subtabs">
         <button data-sub="qr" data-active="1">微信扫码</button>
         <button data-sub="sms">短信登录</button>
+        <button data-sub="web">账号密码</button>
       </div>
 
       <div data-subpanel="qr">
@@ -102,6 +103,28 @@
               <input id="smsCaptchaManual" type="text" spellcheck="false" placeholder="从浏览器网络面板复制 captcha_param 的值">
             </label>
           </details>
+        </div>
+      </div>
+
+      <div data-subpanel="web" hidden>
+        <div class="block">
+          <div class="block-head">
+            <span class="block-title">账号密码登录</span>
+            <span class="muted">手机号与密码在本地加密后提交，换到令牌直接入池，不需要跳转网页</span>
+          </div>
+          <label class="field">
+            <span>手机号</span>
+            <input id="pwdPhone" type="tel" inputmode="numeric" maxlength="11" placeholder="11 位手机号" autocomplete="username">
+          </label>
+          <label class="field">
+            <span>密码</span>
+            <input id="pwdPass" type="password" placeholder="小浣熊账号密码" autocomplete="current-password">
+          </label>
+          <div class="row-actions">
+            <button id="btnPwdLogin" class="primary">登录并入池</button>
+            <span id="pwdStatus" class="status-text"></span>
+          </div>
+          <p class="note">密码只用于本次换取令牌，不落盘。</p>
         </div>
       </div>
     </section>
@@ -279,7 +302,7 @@
       statusLine.textContent = bits.join(' · ');
       list.innerHTML = '';
       if (accounts.length === 0) {
-        list.appendChild(el('div', 'empty', '还没有账号，可在下方导入 JSON 或到「登录」页扫码 / 短信登录。'));
+        list.appendChild(el('div', 'empty', '还没有账号，可在下方导入 JSON 或到「登录」页扫码 / 短信 / 网页登录。'));
         return;
       }
       for (const account of accounts) {
@@ -570,6 +593,41 @@
       }
     }
 
+    // ---------- 账号密码登录 ----------
+    function setPwdStatus(text, tone) {
+      const status = document.getElementById('pwdStatus');
+      status.textContent = text;
+      status.className = 'status-text' + (tone ? ' ' + tone : '');
+    }
+
+    async function pwdLogin() {
+      const phone = document.getElementById('pwdPhone').value.trim();
+      const password = document.getElementById('pwdPass').value;
+      const button = document.getElementById('btnPwdLogin');
+      if (!/^1[3-9]\d{9}$/.test(phone)) {
+        setPwdStatus('请输入有效的 11 位手机号', 'bad');
+        return;
+      }
+      if (!password) {
+        setPwdStatus('请输入密码', 'bad');
+        return;
+      }
+      button.disabled = true;
+      setPwdStatus('登录中…');
+      try {
+        const result = await api('/admin/api/login/password', 'POST', { phone, password });
+        if (result.ok === false) throw new Error(result.message || '登录失败');
+        setPwdStatus('登录成功，账号已入池', 'ok');
+        document.getElementById('pwdPass').value = '';
+        await loadAccounts();
+        await loadStatus();
+      } catch (error) {
+        setPwdStatus(error.message, 'bad');
+      } finally {
+        button.disabled = false;
+      }
+    }
+
     // ---------- 模型 ----------
     async function loadModels(force) {
       const list = document.getElementById('modelList');
@@ -724,6 +782,8 @@
 
     document.getElementById('btnSmsLogin').addEventListener('click', smsLogin);
     document.getElementById('btnModelsRefresh').addEventListener('click', () => loadModels(true));
+
+    document.getElementById('btnPwdLogin').addEventListener('click', pwdLogin);
 
     window.addEventListener('beforeunload', stopQrPolling);
 
