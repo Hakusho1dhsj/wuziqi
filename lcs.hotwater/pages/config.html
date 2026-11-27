@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>热开水 · 设置</title>
+<link rel="stylesheet" href="/__aicode/theme.css">
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--aicode-bg, #0e1116);
+    color: var(--aicode-on-surface, #e6e8ec);
+    font-size: calc(14px * var(--aicode-font-scale, 1));
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .page { width: 100%; max-width: 720px; margin: 0 auto; padding: 16px 16px 48px; }
+  h1 { margin: 0 0 2px; font-size: 1.15em; font-weight: 680; }
+  .sub { margin: 0 0 16px; font-size: .8em; opacity: .68; }
+
+  .card {
+    background: var(--aicode-surface, rgba(255,255,255,.04));
+    border: 1px solid var(--aicode-border, rgba(128,128,128,.24));
+    border-radius: 13px; padding: 13px 14px; margin-bottom: 12px;
+  }
+  .card-title { font-size: .86em; font-weight: 640; margin-bottom: 11px; }
+
+  .field { margin-bottom: 12px; }
+  .field:last-child { margin-bottom: 0; }
+  label.lb { display: block; font-size: .78em; opacity: .74; margin-bottom: 5px; }
+  .hint { font-size: .74em; opacity: .62; margin-top: 5px; line-height: 1.55; }
+
+  select, input[type="text"] {
+    font: inherit; width: 100%; color: inherit; border-radius: 9px; padding: 8px 10px;
+    border: 1px solid var(--aicode-border, rgba(128,128,128,.28));
+    background: var(--aicode-bg, rgba(0,0,0,.2));
+  }
+  select:focus, input:focus { outline: none; border-color: var(--aicode-primary, #2f6fed); }
+
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  @media (max-width: 520px) { .two { grid-template-columns: 1fr; } }
+
+  button {
+    font: inherit; border-radius: 9px; padding: 7px 13px; cursor: pointer; min-height: 34px;
+    border: 1px solid var(--aicode-border, rgba(128,128,128,.4));
+    background: rgba(255,255,255,.07); color: inherit;
+  }
+  button:hover { background: rgba(128,128,128,.16); }
+  button:disabled { opacity: .42; cursor: default; }
+  button.primary { background: var(--aicode-primary, #2f6fed); border-color: transparent; color: #fff; font-weight: 620; }
+  button.mini { padding: 4px 9px; font-size: .82em; border-radius: 7px; }
+  button.danger { color: var(--aicode-error, #ef5b5b); border-color: rgba(239,91,91,.5); background: rgba(239,91,91,.08); }
+  button.danger:hover { background: rgba(239,91,91,.16); }
+
+  .toggle { display: flex; align-items: flex-start; gap: 9px; font-size: .82em; line-height: 1.5; cursor: pointer; }
+  .toggle input { margin-top: 2px; accent-color: var(--aicode-primary, #2f6fed); }
+
+  .paths { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .76em; line-height: 1.7; }
+  .paths div { display: flex; gap: 8px; }
+  .paths .k { opacity: .62; flex: 0 0 96px; }
+  .paths .v { word-break: break-all; opacity: .9; }
+
+  .toast {
+    position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%) translateY(12px);
+    background: rgba(20,24,30,.96); color: #fff; border: 1px solid rgba(128,128,128,.3);
+    padding: 8px 15px; border-radius: 9px; font-size: .82em; opacity: 0; pointer-events: none;
+    transition: opacity .18s, transform .18s; z-index: 60; max-width: calc(100% - 32px);
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>热开水 · 设置</h1>
+  <p class="sub">面板打开时按这里的默认值预选，仍然可以在面板里临时改</p>
+
+  <div class="card">
+    <div class="card-title">默认选择</div>
+    <div class="two">
+      <div class="field">
+        <label class="lb" for="seat">默认席位</label>
+        <select id="seat"></select>
+      </div>
+      <div class="field">
+        <label class="lb" for="mode">默认档位</label>
+        <select id="mode"></select>
+      </div>
+    </div>
+    <div class="field">
+      <label class="lb" for="channel">默认工程通道</label>
+      <select id="channel"></select>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">AiCode 自身注入</div>
+    <div class="field">
+      <label class="lb" for="customNumber">自定义提示词编号</label>
+      <input id="customNumber" type="text" inputmode="numeric" maxlength="2" placeholder="05">
+      <div class="hint">写入 <code>prompts.custom/&lt;编号&gt;-hotwater.md</code>。与内置片段同编号时覆盖它，不同编号则按数字插入到对应位置。下一次会话生效。</div>
+    </div>
+    <div class="field">
+      <label class="toggle">
+        <input id="backup" type="checkbox">
+        <span>写盘前备份原文件到 <code>hotwater/backup/</code></span>
+      </label>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">路径</div>
+    <div class="paths" id="paths"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">维护</div>
+    <div class="row">
+      <button id="btn-save" class="primary">保存设置</button>
+      <button id="btn-reload" class="mini">重新加载</button>
+      <button id="btn-bootstrap" class="mini danger">清理 WorkBuddy BOOTSTRAP</button>
+    </div>
+    <div class="hint">BOOTSTRAP.md 存在时 WorkBuddy 会退回 onboarding 模式，人设槽不生效。这个按钮只删这一个文件。</div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script src="/__aicode/aicode.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var $ = function (id) { return document.getElementById(id); };
+
+  function invoke(handler, args) {
+    if (!window.aicode || typeof window.aicode.invoke !== 'function') {
+      return Promise.reject(new Error('宿主桥未就绪'));
+    }
+    return window.aicode.invoke(handler, args || {});
+  }
+
+  function toast(text) {
+    var el = $('toast');
+    el.textContent = String(text || '');
+    el.classList.add('show');
+    clearTimeout(toast._t);
+    toast._t = setTimeout(function () { el.classList.remove('show'); }, 2400);
+  }
+
+  function fillSelect(el, items, valueKey, labelFn, current) {
+    el.innerHTML = '';
+    items.forEach(function (item) {
+      var opt = document.createElement('option');
+      opt.value = item[valueKey];
+      opt.textContent = labelFn(item);
+      el.appendChild(opt);
+    });
+    if (current) el.value = current;
+  }
+
+  function renderPaths(paths) {
+    var box = $('paths');
+    box.innerHTML = '';
+    var rows = [
+      ['配置目录', paths.stateDir],
+      ['状态文件', paths.state],
+      ['配置文件', paths.config]
+    ];
+    rows.forEach(function (pair) {
+      var row = document.createElement('div');
+      row.innerHTML = '<span class="k">' + pair[0] + '</span><span class="v">' + String(pair[1] || '') + '</span>';
+      box.appendChild(row);
+    });
+  }
+
+  function load() {
+    return invoke('ui.config.get', {})
+      .then(function (res) {
+        var config = res.config || {};
+        var ctx = res.context || {};
+        return invoke('ui.seats', {}).then(function (cat) {
+          fillSelect($('seat'), cat.seats || [], 'id', function (s) {
+            return s.index + ' · ' + s.title;
+          }, config.seat);
+          fillSelect($('mode'), cat.modes || [], 'id', function (m) {
+            return m.label + ' · ' + m.title;
+          }, config.mode);
+          fillSelect($('channel'), cat.channels || [], 'id', function (c) {
+            return c.label + (c.detail ? ' · ' + c.detail : '');
+          }, config.channel);
+          $('customNumber').value = config.customNumber || '05';
+          $('backup').checked = config.backup !== false;
+          renderPaths(res.paths || {});
+          $('paths').insertAdjacentHTML('beforeend',
+            '<div><span class="k">工作区</span><span class="v">' + String(ctx.projectRoot || '') + '</span></div>' +
+            '<div><span class="k">用户目录</span><span class="v">' + String(ctx.home || '') + '</span></div>'
+          );
+        });
+      })
+      .catch(function (err) { toast('加载失败：' + err.message); });
+  }
+
+  $('btn-save').addEventListener('click', function () {
+    var payload = {
+      seat: $('seat').value,
+      mode: $('mode').value,
+      channel: $('channel').value,
+      customNumber: $('customNumber').value,
+      backup: $('backup').checked
+    };
+    invoke('ui.config.save', payload)
+      .then(function (res) { toast(res.message || '设置已保存'); })
+      .catch(function (err) { toast('保存失败：' + err.message); });
+  });
+
+  $('btn-reload').addEventListener('click', function () { load(); });
+
+  $('btn-bootstrap').addEventListener('click', function () {
+    if (!window.confirm('确认删除 WorkBuddy 目录下的 BOOTSTRAP.md？删除后 WorkBuddy 不再退回 onboarding 模式。')) return;
+    invoke('ui.cleanupBootstrap', { confirm: true })
+      .then(function (res) { toast(res.message); })
+      .catch(function (err) { toast('清理失败：' + err.message); });
+  });
+
+  load();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,93 @@
+{
+  "source": {
+    "repo": "MDX-Tom/gpt-instruct",
+    "url": "https://github.com/MDX-Tom/gpt-instruct",
+    "license": "MIT",
+    "pushedAt": "2026-11-22",
+    "note": "破甲路线为任务重绑定（fixture slot 路由），非人格扮演。正文不含任何模型名，靠 Codex 的 model_instructions_file 注入。"
+  },
+  "additionalSources": [
+    {
+      "repo": "mizaawa/ZakoProxyCLI",
+      "url": "https://github.com/mizaawa/ZakoProxyCLI",
+      "license": "MIT",
+      "provides": "gpt-6.2-astra / gpt-6.2-sol 的渲染版 Codex 正文",
+      "upstream": "3641397194-wq/gpt6-Astra",
+      "upstreamRevision": "a30126e7c7d6c2ffe6b08f007cbc055d9b498f71",
+      "files": "profiles/coldcoffee-full/codex.md 与 profiles/coldcoffee-gpt/system.md（同内容）",
+      "note": "正文 header 标 seat: GPT-6.2 Astra / Sol / Codex CLI，含 81 个路由叶子与「冷咖啡」激活口令。"
+    }
+  ],
+  "packs": [
+    {
+      "id": "gpt-6-astra",
+      "name": "GPT-6 Astra",
+      "models": ["gpt-6-astra", "gpt-6-astra-*"],
+      "version": "v2-rc1",
+      "status": "prerelease",
+      "file": "packs/gpt-6-astra-v2-rc1.md",
+      "bytes": 7931,
+      "lines": 140,
+      "sha256_16": "d6976b90b399b9e1",
+      "deployable": true,
+      "eval": "双次 fresh A 均 3/4；B 非云五族 42/50 cases、48/56 turns；云端三次重复 23/48 attempts、29/54 turns；artifact gates 16/16；C 未运行",
+      "note": "三条已发布版本里唯一对口 GPT-6 Astra 的成品。"
+    },
+    {
+      "id": "gpt-6.1-sol",
+      "name": "GPT-6.1 Sol",
+      "models": ["gpt-6.1-sol", "gpt-6.1-sol-*"],
+      "version": "v1-rc2",
+      "status": "prerelease",
+      "file": "packs/gpt-6.1-sol-v1-rc2.md",
+      "bytes": 7575,
+      "lines": 128,
+      "sha256_16": "37382fb7082652e5",
+      "deployable": true,
+      "eval": "双次 fresh A 均 3/4；B 非云五族 34/50 cases、40/56 turns；云端三次重复 22/48 attempts、28/54 turns；artifact gates 15/16；C 未运行",
+      "note": "与 ASTRA 线锁步迭代，成绩只在相同模型、推理等级下比较。"
+    },
+    {
+      "id": "gpt-5.6-sol",
+      "name": "GPT-5.6 Sol",
+      "models": ["gpt-5.6-sol", "gpt-5.6-sol-*"],
+      "version": "v45",
+      "status": "stable",
+      "file": "packs/gpt-5.6-sol-unrestricted-v45.md",
+      "bytes": 5170,
+      "lines": 84,
+      "sha256_16": "c71c50e2f7a303b5",
+      "deployable": true,
+      "eval": "项目默认生产版；low/medium/high 三档从 5.5 基线到 v41 同步上升，v41 三档满通过",
+      "note": "当前稳定线，非预发布。"
+    },
+    {
+      "id": "gpt-6.2-astra",
+      "name": "GPT-6.2 Astra",
+      "models": ["gpt-6.2-astra"],
+      "version": "coldcoffee-v1",
+      "status": "release",
+      "file": "packs/gpt-6.2-astra-codex.md",
+      "bytes": 65582,
+      "lines": 2011,
+      "sha256_16": "53fa5d080edd3ad7",
+      "deployable": true,
+      "eval": "Zako 侧自标未实测；MDX-Tom 同代 JB-A 人工拒答率 65.0%–84.2%、JB-B 71.9%–93.4% 可作难度参考",
+      "note": "冷咖啡 Codex 席位正文（ZakoProxyCLI 渲染版），header 明确 seat: GPT-6.2 Astra / Sol / Codex CLI，含 81 个路由叶子。"
+    },
+    {
+      "id": "gpt-6.2-sol",
+      "name": "GPT-6.2 Sol",
+      "models": ["gpt-6.2-sol"],
+      "version": "coldcoffee-v1",
+      "status": "release",
+      "file": "packs/gpt-6.2-astra-codex.md",
+      "bytes": 65582,
+      "lines": 2011,
+      "sha256_16": "53fa5d080edd3ad7",
+      "deployable": true,
+      "eval": "与 Astra 共用同一份 Codex 正文；MDX-Tom 同代 JB-A 73.68%–75.0%、JB-B 72.86%–84.29% 可作难度参考",
+      "note": "与 gpt-6.2-astra 共用同一份正文（models.json 里两个 id 指向同一 codex.md），不编造两套不同提示词。"
+    }
+  ]
+}

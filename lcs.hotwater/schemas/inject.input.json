@@ -1,0 +1,54 @@
+{
+  "type": "object",
+  "properties": {
+    "seat": {
+      "type": "string",
+      "enum": ["master", "codex", "claude", "grok", "cursor", "deepseek", "glm53", "workbuddy"],
+      "description": "席位 id，决定人设包的席位锁定段。默认 master。"
+    },
+    "mode": {
+      "type": "string",
+      "enum": ["max", "focused", "builder", "research", "creative"],
+      "description": "工作档位，决定档位段。默认 max。"
+    },
+    "chain": {
+      "type": "array",
+      "items": { "type": "string", "enum": ["reverse", "unlock", "infil", "harvest", "train"] },
+      "description": "工作链，省略时按档位自动选。"
+    },
+    "channel": {
+      "type": "string",
+      "enum": ["auto", "codex", "deepseek"],
+      "description": "工程通道。默认 auto。"
+    },
+    "tone": {
+      "type": "string",
+      "description": "语气标签，省略时取默认。"
+    },
+    "goal": {
+      "type": "string",
+      "description": "用户目标，写进注入包末尾。"
+    },
+    "targets": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["aicode", "aicode-agents", "codex", "claude", "cursor", "workbuddy", "deepseek", "grok", "glm53"]
+      },
+      "description": "注入目标。默认 aicode（写 AiCode 的 prompts.custom，下一次会话生效）。"
+    },
+    "confirm": {
+      "type": "boolean",
+      "description": "必须为 true 才真正写盘。缺省时只生成注入包并返回将写入的文件清单。"
+    },
+    "dryRun": {
+      "type": "boolean",
+      "description": "为 true 时完整跑一遍但不落盘，只回报每个文件会写成什么规模。"
+    },
+    "backup": {
+      "type": "boolean",
+      "description": "写盘前是否把原文件备份到 AICODE_HOME/hotwater/backup，默认跟随设置。"
+    }
+  },
+  "additionalProperties": false
+}

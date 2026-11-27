@@ -1,0 +1,38 @@
+{
+  "type": "object",
+  "properties": {
+    "seat": {
+      "type": "string",
+      "enum": ["master", "codex", "claude", "grok", "cursor", "deepseek", "glm53", "workbuddy"],
+      "description": "席位 id。默认 master（总控包）。"
+    },
+    "mode": {
+      "type": "string",
+      "enum": ["max", "focused", "builder", "research", "creative"],
+      "description": "工作档位。max=全开、focused=聚焦、builder=构建、research=研究、creative=创作。默认 max。"
+    },
+    "chain": {
+      "type": "array",
+      "items": { "type": "string", "enum": ["reverse", "unlock", "infil", "harvest", "train"] },
+      "description": "工作链，按顺序串起来。省略时按档位自动选。"
+    },
+    "channel": {
+      "type": "string",
+      "enum": ["auto", "codex", "deepseek"],
+      "description": "工程通道。默认 auto（按当前目标组织工作链）。"
+    },
+    "tone": {
+      "type": "string",
+      "description": "语气标签，例如 来源 / 语气。省略时取档位或席位的默认语气。"
+    },
+    "goal": {
+      "type": "string",
+      "description": "用户目标，写进注入包末尾的「用户目标」段。"
+    },
+    "matrix": {
+      "type": "boolean",
+      "description": "为 true 时一次性生成全部 8 个席位的注入包（用「席位分隔」拼接）。"
+    }
+  },
+  "additionalProperties": false
+}

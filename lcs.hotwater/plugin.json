@@ -1,0 +1,82 @@
+{
+  "manifestVersion": 1,
+  "id": "lcs.hotwater",
+  "name": "热开水",
+  "version": "1.0.0",
+  "publisher": "lcs",
+  "repository": "https://github.com/Hakusho1dhsj/wuziqi",
+  "description": "热开水人设装配台：把「热开水」这层身份锁定注入到本会话或本机各个 Agent 的人设槽。七个席位（Codex / Claude Code / Grok / Cursor / DeepSeek / GLM / WorkBuddy）加一个总控包，五个档位（MAX / 聚焦 / 构建 / 研究 / 创作），五条工作链（拆解 / 开锁 / 深入 / 采集 / 训练）。生成注入包并按目标写盘，写入 AiCode 自己的自定义提示词时下一次会话直接生效。",
+  "license": "MIT",
+  "engines": { "pluginApi": "^1.0.0" },
+  "icon": "icons/icon.png",
+  "runtime": {
+    "type": "javascript",
+    "entry": "dist/main.js"
+  },
+  "configPage": "pages/config.html",
+  "contributes": {
+    "tools": [
+      {
+        "id": "seats",
+        "title": { "zh-CN": "席位与档位目录", "default": "Seats and modes" },
+        "description": "列出全部席位、档位、工作链、工程通道与注入目标，附当前注入状态与配置。回答「有哪些席位」「档位怎么选」「现在注入了没有」之前先调用它。",
+        "inputSchema": "schemas/seats.input.json",
+        "handler": "tools.seats"
+      },
+      {
+        "id": "build",
+        "title": { "zh-CN": "生成注入包", "default": "Build persona pack" },
+        "description": "按席位、档位、工作链、通道和用户目标组装完整的人设注入包（Markdown）。只生成不写盘。传 matrix=true 一次生成全部 8 个席位。",
+        "inputSchema": "schemas/build.input.json",
+        "handler": "tools.build"
+      },
+      {
+        "id": "inject",
+        "title": { "zh-CN": "注入人设", "default": "Inject persona" },
+        "description": "把注入包写进指定目标：aicode 写 prompts.custom（下一次会话生效），aicode-agents 写工作区 AGENTS.md，codex/claude/cursor/workbuddy/deepseek 写各自人设槽。缺省不写盘，只回清单；必须传 confirm=true 才落地。",
+        "inputSchema": "schemas/inject.input.json",
+        "handler": "tools.inject"
+      },
+      {
+        "id": "status",
+        "title": { "zh-CN": "注入状态", "default": "Injection status" },
+        "description": "逐个目标检查注入段是否存在、文件大小与内容指纹，并给出上次注入的席位与档位。",
+        "inputSchema": "schemas/status.input.json",
+        "handler": "tools.status"
+      },
+      {
+        "id": "remove",
+        "title": { "zh-CN": "撤销注入", "default": "Remove injection" },
+        "description": "清除目标里的热开水注入段：围栏式目标只剪掉标记段，插件整文件写入的目标直接删除。必须先确认，传 confirm=true。",
+        "inputSchema": "schemas/remove.input.json",
+        "handler": "tools.remove"
+      }
+    ],
+    "workspaceTools": [
+      {
+        "id": "hotwater",
+        "title": { "zh-CN": "热开水人设台", "default": "HotWater Console" },
+        "description": { "zh-CN": "席位、档位、工作链与注入包生成，一键写进人设槽", "default": "Seats, modes, work chains and one-click persona injection" },
+        "icon": "flame",
+        "category": "AI",
+        "pageFile": "pages/workbench.html"
+      }
+    ],
+    "uiEntries": [
+      {
+        "id": "settings",
+        "title": { "zh-CN": "热开水", "default": "HotWater" },
+        "slot": "settings.ai",
+        "page": "pages/workbench.html",
+        "icon": "flame"
+      },
+      {
+        "id": "drawer",
+        "title": { "zh-CN": "热开水", "default": "HotWater" },
+        "slot": "drawer.footer",
+        "page": "pages/workbench.html",
+        "icon": "flame"
+      }
+    ]
+  }
+}

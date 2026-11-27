@@ -1,0 +1,28 @@
+{
+  "type": "object",
+  "properties": {
+    "pack": {
+      "type": "string",
+      "description": "破甲包 id，例如 gpt-6-astra"
+    },
+    "targets": {
+      "type": "array",
+      "items": { "enum": ["aicode", "aicode-agents", "codex"] },
+      "description": "注入目标，缺省 aicode"
+    },
+    "confirm": {
+      "type": "boolean",
+      "description": "必须为 true 才真正写盘，缺省只回清单"
+    },
+    "dryRun": {
+      "type": "boolean",
+      "description": "预演，不写盘"
+    },
+    "backup": {
+      "type": "boolean",
+      "description": "写盘前备份原文件，缺省跟随设置"
+    }
+  },
+  "required": ["pack"],
+  "additionalProperties": false
+}

@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="/__aicode/theme.css">
+  <script src="/__aicode/aicode.js"></script>
+  <title>破甲注入器</title>
+  <style>
+    :root {
+      --rc-text: #e6edf3;
+      --rc-dim: #d3dbe4;
+      --rc-line: rgba(160, 175, 190, 0.45);
+      --rc-surface: rgba(120, 140, 160, 0.14);
+      --rc-surface-2: rgba(120, 140, 160, 0.22);
+    }
+    @media (prefers-color-scheme: light) {
+      :root {
+        --rc-text: #1f2328;
+        --rc-dim: #59636e;
+        --rc-line: rgba(31, 35, 40, 0.28);
+        --rc-surface: rgba(31, 35, 40, 0.06);
+        --rc-surface-2: rgba(31, 35, 40, 0.12);
+      }
+      textarea, input { background: rgba(31, 35, 40, 0.04); }
+    }
+    .page { box-sizing: border-box; width: 100%; max-width: 900px; margin: 0 auto; padding: 16px; color: var(--rc-text); font-family: var(--font, system-ui, sans-serif); }
+    .head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+    h2 { margin: 0; font-size: 18px; }
+    .head-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+    .card { padding: 10px 12px; border-radius: 10px; background: var(--rc-surface); border: 1px solid var(--rc-line); }
+    .card-label { font-size: 12px; color: var(--rc-dim); margin-bottom: 4px; }
+    .card-value { font-size: 13px; display: flex; align-items: center; gap: 8px; word-break: break-all; }
+    .target-path { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; word-break: break-all; color: var(--rc-dim); margin-top: 6px; }
+    .chip { font-size: 11px; padding: 1px 7px; border-radius: 999px; background: var(--rc-surface-2); }
+    .chip.ok { background: rgba(46, 160, 67, 0.22); color: #3fb950; }
+    .chip.warn { background: rgba(210, 153, 34, 0.24); color: #e3b341; }
+    .tabs { display: flex; gap: 6px; margin: 16px 0 12px; }
+    .tabs button { flex: 1; padding: 9px; font-size: 13px; border-radius: 8px; border: 1px solid var(--rc-line); background: var(--rc-surface); color: var(--rc-text); cursor: pointer; }
+    .tabs button[data-active="1"] { background: var(--rc-surface-2); border-color: var(--rc-text); font-weight: 600; }
+    .block { padding: 12px; border-radius: 10px; background: var(--rc-surface); border: 1px solid var(--rc-line); margin-bottom: 12px; }
+    .block-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+    .block-title { font-size: 13px; font-weight: 600; }
+    .muted { font-size: 12px; color: var(--rc-dim); }
+    .hint { font-size: 12px; color: var(--rc-dim); line-height: 1.7; margin-top: 8px; }
+    .hint code { font-family: ui-monospace, monospace; overflow-wrap: anywhere; }
+    .row-actions { display: flex; align-items: center; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+    button { padding: 7px 14px; border-radius: 8px; border: 1px solid var(--rc-line); background: var(--rc-surface); color: var(--rc-text); cursor: pointer; font-size: 13px; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    button.small { padding: 4px 9px; font-size: 12px; }
+    button.primary { background: #1f6feb; border-color: #1f6feb; color: #ffffff; }
+    button.danger { background: #da3633; border-color: #da3633; color: #ffffff; }
+    button.ghost { background: var(--rc-surface); }
+    .prompt-list { display: flex; flex-wrap: wrap; gap: 8px; }
+    .prompt-item { padding: 6px 12px; border-radius: 999px; font-size: 13px; cursor: pointer; background: var(--rc-surface); color: var(--rc-text); border: 1px solid var(--rc-line); }
+    .prompt-item[data-active="1"] { background: var(--rc-surface-2); border-color: var(--rc-text); font-weight: 600; }
+    .prompt-meta { display: flex; flex-wrap: wrap; gap: 10px; font-size: 12px; color: var(--rc-dim); margin: 10px 0 8px; }
+    textarea, input { width: 100%; box-sizing: border-box; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--rc-line); background: rgba(0, 0, 0, 0.22); color: var(--rc-text); font-size: 13px; font-family: ui-monospace, monospace; }
+    #promptText { min-height: 46vh; resize: vertical; line-height: 1.5; font-size: 12px; }
+    .num-row { display: flex; align-items: center; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+    #numberInput { width: 72px; text-align: center; }
+    .skill-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 10px; border-radius: 8px; background: var(--rc-surface-2); }
+    .skill-name { font-size: 13px; font-weight: 600; }
+    .skill-desc { font-size: 11px; color: var(--rc-dim); margin-top: 3px; word-break: break-all; line-height: 1.5; }
+    .list { display: flex; flex-direction: column; gap: 8px; }
+    .log-row { font-size: 12px; padding: 5px 0; border-bottom: 1px solid var(--rc-line); word-break: break-all; line-height: 1.5; }
+    .log-row:last-child { border-bottom: 0; }
+    .status-text { font-size: 12px; color: var(--rc-text); }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="head">
+      <h2>破甲注入器 <span class="muted" id="ver"></span></h2>
+      <div class="head-actions">
+        <button id="btnRefresh" class="ghost">刷新</button>
+      </div>
+    </header>
+
+    <section id="targets" class="cards"></section>
+
+    <nav class="tabs">
+      <button data-tab="inject" data-active="1">注入</button>
+      <button data-tab="prompts">提示词</button>
+      <button data-tab="skills">技能包</button>
+      <button data-tab="logs">日志</button>
+    </nav>
+
+    <section data-panel="inject">
+      <div class="block">
+        <div class="block-head">
+          <span class="block-title">注入设置</span>
+          <span class="muted">编号 00/10/…/99 覆盖内置片段，其他编号作为新片段插入</span>
+        </div>
+        <div class="prompt-list" id="quickPrompts"></div>
+        <div class="num-row">
+          <label class="muted" for="numberInput">AiCode 片段编号</label>
+          <input id="numberInput" value="05" inputmode="numeric" maxlength="2">
+          <span class="muted" id="numberHint"></span>
+        </div>
+        <div class="row-actions">
+          <button id="btnApplyAi" class="primary">注入到 AiCode</button>
+          <button id="btnApplyDsh" class="ghost">注入到 DSH</button>
+        </div>
+        <div class="row-actions">
+          <button id="btnRestoreAi" class="danger small">还原 AiCode</button>
+          <button id="btnRestoreDsh" class="ghost small">还原 DSH</button>
+        </div>
+        <div class="hint" id="injectNote"></div>
+      </div>
+
+      <div class="block">
+        <div class="block-head">
+          <span class="block-title">说明</span>
+        </div>
+        <div class="hint">
+          AiCode 自定义提示词放在 <code id="aiHomePath"></code> 下的 <code>prompts.custom/&lt;编号&gt;-dsh-purge.md</code>，保存后即时生效，无需重启。<br>
+          编号写 05 表示插在 00 身份与 10 通信之间；写 00 会直接覆盖内置身份片段。<br>
+          DSH 目标写的是 <code id="dshHomePath"></code> 下的 <code>prompt-inject.md</code>，只在装了 DeepSeek Harness 时才有意义。
+        </div>
+      </div>
+    </section>
+
+    <section data-panel="prompts" hidden>
+      <div class="block">
+        <div class="block-head">
+          <span class="block-title">提示词库</span>
+          <span class="muted" id="promptCount"></span>
+        </div>
+        <div class="prompt-list" id="promptList"></div>
+        <div class="prompt-meta" id="promptMeta"></div>
+        <textarea id="promptText" spellcheck="false"></textarea>
+        <div class="row-actions">
+          <button id="btnSavePrompt" class="primary">保存本地稿</button>
+          <button id="btnResetPrompt" class="ghost">恢复出厂</button>
+          <button id="btnCopyPrompt" class="ghost">复制正文</button>
+          <span class="status-text" id="promptStatus"></span>
+        </div>
+        <div class="hint">本地稿存在插件的插件数据目录里，只影响注入内容，不改包内出厂文件。恢复出厂只丢本地稿。</div>
+      </div>
+    </section>
+
+    <section data-panel="skills" hidden>
+      <div class="block">
+        <div class="block-head">
+          <span class="block-title">红队技能包</span>
+          <div class="head-actions">
+            <button id="btnInstallAll" class="primary small">全部安装</button>
+            <span class="muted" id="skillCount"></span>
+          </div>
+        </div>
+        <div id="skillList" class="list"></div>
+        <div class="hint">安装位置：<code id="skillPath"></code>。技能清单需要新开会话才会刷新。</div>
+      </div>
+    </section>
+
+    <section data-panel="logs" hidden>
+      <div class="block">
+        <div class="block-head">
+          <span class="block-title">操作日志</span>
+          <span class="muted">最近 120 条</span>
+        </div>
+        <div id="logList"></div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    (function () {
+      let status = null;
+      let prompts = [];
+      let currentId = 'persona';
+      let selectedForInject = 'persona';
+
+      const toast = (text) => {
+        try { aicode.toast(text); } catch { /* 宿主未提供 toast */ }
+      };
+
+      const el = (tag, cls, text) => {
+        const node = document.createElement(tag);
+        if (cls) node.className = cls;
+        if (text !== undefined) node.textContent = text;
+        return node;
+      };
+
+      const invoke = async (handler, args) => {
+        const result = await aicode.invoke(handler, args || {});
+        if (result && result.ok === false) throw new Error(result.message || '操作失败');
+        return result;
+      };
+
+      const fmtTime = (iso) => {
+        if (!iso) return '—';
+        const d = new Date(iso);
+        if (Number.isNaN(d.getTime())) return iso;
+        const pad = (n) => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      };
+
+      const fmtBytes = (n) => {
+        if (!n) return '0 B';
+        if (n < 1024) return `${n} B`;
+        return `${(n / 1024).toFixed(1)} KB`;
+      };
+
+      function card(title, value, badge, badgeClass) {
+        const node = el('div', 'card');
+        node.appendChild(el('div', 'card-label', title));
+        node.appendChild(el('div', 'card-value', value));
+        if (badge) {
+          const b = el('span', 'chip ' + (badgeClass || ''), badge);
+          node.appendChild(b);
+        }
+        return node;
+      }
+
+      function renderTargets() {
+        const box = document.getElementById('targets');
+        box.innerHTML = '';
+        (status.targets || []).forEach((target) => {
+          const node = el('div', 'card');
+          const head = el('div', 'card-label', target.label);
+          node.appendChild(head);
+          const stateText = target.exists
+            ? (target.applied ? '已注入 · ' + (target.applied.id || '') : '文件已存在（非本插件写入）')
+            : '未注入';
+          node.appendChild(el('div', 'card-value', stateText));
+          node.appendChild(el('span', 'chip ' + (target.exists ? 'ok' : 'warn'), target.exists ? fmtBytes(target.bytes) : '空'));
+          if (target.drifted) node.appendChild(el('div', 'hint', '文件在注入后被改过'));
+          if (target.applied && target.applied.at) node.appendChild(el('div', 'hint', '注入时间 ' + fmtTime(target.applied.at)));
+          node.appendChild(el('div', 'target-path', target.path));
+          box.appendChild(node);
+        });
+      }
+
+      function renderQuick() {
+        const box = document.getElementById('quickPrompts');
+        box.innerHTML = '';
+        prompts.forEach((item) => {
+          const btn = el('button', 'prompt-item', item.title);
+          btn.type = 'button';
+          btn.dataset.id = item.id;
+          if (item.id === selectedForInject) btn.dataset.active = '1';
+          btn.addEventListener('click', () => {
+            selectedForInject = item.id;
+            renderQuick();
+          });
+          box.appendChild(btn);
+        });
+        const note = document.getElementById('injectNote');
+        const current = prompts.filter((item) => item.id === selectedForInject)[0];
+        note.textContent = current ? `当前选中：${current.title} · ${fmtBytes(current.bytes)}${current.customized ? ' · 本地稿' : ' · 出厂'}` : '';
+      }
+
+      function numberHint() {
+        const value = document.getElementById('numberInput').value.trim();
+        const builtin = ['00', '10', '15', '20', '30', '40', '50', '60', '70', '99'];
+        const hint = document.getElementById('numberHint');
+        if (builtin.indexOf(value) >= 0) hint.textContent = '覆盖内置 ' + value;
+        else if (/^\d{1,2}$/.test(value)) hint.textContent = '作为新片段插入';
+        else hint.textContent = '填 00–99 两位数字';
+      }
+
+      function renderPrompts() {
+        const list = document.getElementById('promptList');
+        list.innerHTML = '';
+        prompts.forEach((item) => {
+          const btn = el('button', 'prompt-item', item.title + (item.customized ? ' *' : ''));
+          btn.type = 'button';
+          if (item.id === currentId) btn.dataset.active = '1';
+          btn.addEventListener('click', () => selectPrompt(item.id));
+          list.appendChild(btn);
+        });
+        document.getElementById('promptCount').textContent = `${prompts.length} 份`;
+      }
+
+      function renderPromptMeta() {
+        const item = prompts.filter((entry) => entry.id === currentId)[0];
+        const meta = document.getElementById('promptMeta');
+        meta.innerHTML = '';
+        if (!item) return;
+        meta.appendChild(el('span', '', '来源：' + (item.customized ? '本地稿' : '出厂')));
+        meta.appendChild(el('span', '', '大小：' + fmtBytes(item.bytes)));
+        meta.appendChild(el('span', '', '指纹：' + item.hash));
+        meta.appendChild(el('span', '', item.note || ''));
+      }
+
+      async function selectPrompt(id) {
+        currentId = id;
+        renderPrompts();
+        const data = await invoke('ui.prompt.read', { id });
+        document.getElementById('promptText').value = data.text || '';
+        document.getElementById('promptStatus').textContent = '';
+        renderPromptMeta();
+      }
+
+      function renderSkills() {
+        const box = document.getElementById('skillList');
+        box.innerHTML = '';
+        const skills = status.skills || { available: [] };
+        document.getElementById('skillCount').textContent = `${skills.installedCount || 0} / ${skills.total || 0}`;
+        document.getElementById('skillPath').textContent = (status.aiHome || '~/.aicode') + '/skills';
+        (skills.available || []).forEach((item) => {
+          const row = el('div', 'skill-row');
+          const left = el('div', '');
+          left.appendChild(el('div', 'skill-name', item.name));
+          left.appendChild(el('div', 'skill-desc', item.description || item.id));
+          row.appendChild(left);
+          const btn = el('button', item.installed ? 'ghost small' : 'primary small', item.installed ? '卸载' : '安装');
+          btn.addEventListener('click', async () => {
+            btn.disabled = true;
+            try {
+              await invoke('ui.skills', { op: item.installed ? 'remove' : 'install', id: item.id });
+              toast(item.installed ? '已卸载 ' + item.id : '已安装 ' + item.id);
+              await load();
+            } catch (error) {
+              toast(error.message);
+            } finally {
+              btn.disabled = false;
+            }
+          });
+          row.appendChild(btn);
+          box.appendChild(row);
+        });
+      }
+
+      function renderLogs() {
+        const box = document.getElementById('logList');
+        box.innerHTML = '';
+        const entries = (status && status.log) || [];
+        if (!entries.length) {
+          box.appendChild(el('div', 'muted', '还没有操作记录'));
+          return;
+        }
+        entries.forEach((entry) => {
+          const row = el('div', 'log-row');
+          row.appendChild(el('span', 'muted', fmtTime(entry.at) + '  '));
+          row.appendChild(el('span', '', entry.message));
+          box.appendChild(row);
+        });
+      }
+
+      async function load() {
+        status = await invoke('ui.status', {});
+        prompts = status.prompts || [];
+        document.getElementById('ver').textContent = 'v' + (status.version || '');
+        document.getElementById('aiHomePath').textContent = (status.aiHome || '~/.aicode');
+        document.getElementById('dshHomePath').textContent = (status.dshHome || '~/.dsh');
+        renderTargets();
+        renderQuick();
+        renderPrompts();
+        renderSkills();
+        renderLogs();
+        renderPromptMeta();
+      }
+
+      document.querySelectorAll('nav.tabs button').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('nav.tabs button').forEach((other) => other.removeAttribute('data-active'));
+          btn.dataset.active = '1';
+          document.querySelectorAll('[data-panel]').forEach((panel) => {
+            panel.hidden = panel.getAttribute('data-panel') !== btn.getAttribute('data-tab');
+          });
+        });
+      });
+
+      document.getElementById('numberInput').addEventListener('input', numberHint);
+
+      document.getElementById('btnApplyAi').addEventListener('click', async () => {
+        try {
+          const number = document.getElementById('numberInput').value.trim() || '05';
+          const result = await invoke('ui.apply', { target: 'aicode', id: selectedForInject, number });
+          toast(`已注入到 ${result.path}`);
+          await load();
+        } catch (error) {
+          toast(error.message);
+        }
+      });
+
+      document.getElementById('btnApplyDsh').addEventListener('click', async () => {
+        try {
+          const result = await invoke('ui.apply', { target: 'dsh', id: selectedForInject });
+          toast(`已写入 ${result.path}`);
+          await load();
+        } catch (error) {
+          toast(error.message);
+        }
+      });
+
+      document.getElementById('btnRestoreAi').addEventListener('click', async () => {
+        try {
+          const result = await invoke('ui.restore', { target: 'aicode' });
+          toast(result.removed ? '已删除 ' + result.path : '文件不存在：' + result.path);
+          await load();
+        } catch (error) {
+          toast(error.message);
+        }
+      });
+
+      document.getElementById('btnRestoreDsh').addEventListener('click', async () => {
+        try {
+          const result = await invoke('ui.restore', { target: 'dsh' });
+          toast(result.removed ? '已删除 ' + result.path : '文件不存在：' + result.path);
+          await load();
+        } catch (error) {
+          toast(error.message);
+        }
+      });
+
+      document.getElementById('btnSavePrompt').addEventListener('click', async () => {
+        try {
+          const text = document.getElementById('promptText').value;
+          await invoke('ui.prompt.save', { id: currentId, text });
+          document.getElementById('promptStatus').textContent = '已保存本地稿';
+          await load();
+          await selectPrompt(currentId);
+        } catch (error) {
+          toast(error.message);
+        }
+      });
+
+      document.getElementById('btnResetPrompt').addEventListener('click', async () => {
+        try {
+          await invoke('ui.prompt.reset', { id: currentId });
+          document.getElementById('promptStatus').textContent = '已恢复出厂';
+          await load();
+          await selectPrompt(currentId);
+        } catch (error) {
+          toast(error.message);
+        }
+      });
+
+      document.getElementById('btnCopyPrompt').addEventListener('click', async () => {
+        const text = document.getElementById('promptText').value;
+        try {
+          await aicode.clipboard.write(text);
+          toast('已复制');
+        } catch {
+          toast('复制失败');
+        }
+      });
+
+      document.getElementById('btnInstallAll').addEventListener('click', async () => {
+        try {
+          const result = await invoke('ui.skills', { op: 'installAll' });
+          toast(`已安装 ${result.installedCount} / ${result.total}`);
+          await load();
+        } catch (error) {
+          toast(error.message);
+        }
+      });
+
+      document.getElementById('btnRefresh').addEventListener('click', () => {
+        load().catch((error) => toast(error.message));
+      });
+
+      numberHint();
+      load().catch((error) => toast(error.message));
+      selectPrompt('persona').catch(() => {});
+    })();
+  </script>
+</body>
+</html>

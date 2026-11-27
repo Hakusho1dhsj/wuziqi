@@ -1,0 +1,123 @@
+{
+  "manifestVersion": 1,
+  "id": "jinghan.spoof-proxy",
+  "name": {
+    "zh-CN": "客户端伪装反代",
+    "default": "Client Spoof Proxy"
+  },
+  "version": "1.0.3",
+  "publisher": "jinghan",
+  "repository": "https://github.com/Hakusho1dhsj/wuziqi",
+  "description": {
+    "zh-CN": "本地 HTTP 反代 + 原生钩子双模式：把请求伪装成 Codex / Claude Code 等白名单客户端后转发到中转站，绕开「仅支持编程客户端」的 403。原生接管模式下无需修改供应商 baseUrl。",
+    "default": "Local reverse proxy that spoofs whitelisted coding clients."
+  },
+  "license": "MIT",
+  "icon": "icons/icon.png",
+  "engines": {
+    "pluginApi": "^1.0.0"
+  },
+  "runtime": {
+    "type": "javascript",
+    "entry": "dist/main.js",
+    "resident": true
+  },
+  "contributes": {
+    "configPage": "pages/config.html",
+    "providers": [
+      {
+        "id": "spoof",
+        "name": {
+          "zh-CN": "伪装反代",
+          "default": "Spoof Proxy"
+        },
+        "description": {
+          "zh-CN": "本地伪装反代，把请求伪装成 Codex / Claude Code 等客户端转发到中转站。",
+          "default": "Local reverse proxy that spoofs whitelisted coding clients."
+        },
+        "format": "openai",
+        "baseUrl": "http://127.0.0.1:8788/v1"
+      }
+    ],
+    "hooks": [
+      {
+        "id": "boot",
+        "event": "app.started",
+        "mode": "observe",
+        "handler": "hooks.boot"
+      },
+      {
+        "id": "http-before",
+        "event": "agent.http.before",
+        "mode": "transform",
+        "handler": "hooks.httpBefore"
+      }
+    ],
+    "tools": [
+      {
+        "id": "proxy_start",
+        "title": {
+          "zh-CN": "启动反代",
+          "default": "Start proxy"
+        },
+        "description": {
+          "zh-CN": "启动本地伪装反代服务。返回本地监听地址与当前伪装档位。",
+          "default": "Start the local spoofing reverse proxy."
+        },
+        "inputSchema": "schemas/proxy_start.input.json",
+        "handler": "tools.start"
+      },
+      {
+        "id": "proxy_stop",
+        "title": {
+          "zh-CN": "停止反代",
+          "default": "Stop proxy"
+        },
+        "description": {
+          "zh-CN": "停止本地反代服务。",
+          "default": "Stop the local reverse proxy."
+        },
+        "inputSchema": "schemas/empty.input.json",
+        "handler": "tools.stop"
+      },
+      {
+        "id": "proxy_status",
+        "title": {
+          "zh-CN": "反代状态",
+          "default": "Proxy status"
+        },
+        "description": {
+          "zh-CN": "读取反代运行状态、请求计数、最近错误与当前配置。",
+          "default": "Read proxy runtime status and config."
+        },
+        "inputSchema": "schemas/empty.input.json",
+        "handler": "tools.status"
+      },
+      {
+        "id": "proxy_config",
+        "title": {
+          "zh-CN": "反代配置",
+          "default": "Configure proxy"
+        },
+        "description": {
+          "zh-CN": "写入反代配置：上游地址、Token、伪装档位、额外请求头、是否改写 body、代理、监听端口。",
+          "default": "Update proxy configuration."
+        },
+        "inputSchema": "schemas/proxy_config.input.json",
+        "handler": "tools.config"
+      }
+    ],
+    "uiEntries": [
+      {
+        "id": "panel",
+        "title": {
+          "zh-CN": "客户端伪装反代",
+          "default": "Spoof Proxy"
+        },
+        "slot": "settings.ai",
+        "page": "pages/config.html",
+        "icon": "shield"
+      }
+    ]
+  }
+}

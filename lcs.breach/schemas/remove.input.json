@@ -1,0 +1,15 @@
+{
+  "type": "object",
+  "properties": {
+    "targets": {
+      "type": "array",
+      "items": { "enum": ["aicode", "aicode-agents", "codex"] },
+      "description": "要清除的目标，缺省 aicode"
+    },
+    "confirm": {
+      "type": "boolean",
+      "description": "必须为 true 才执行，缺省只回清单"
+    }
+  },
+  "additionalProperties": false
+}

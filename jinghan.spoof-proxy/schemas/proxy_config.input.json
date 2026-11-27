@@ -1,0 +1,28 @@
+{
+  "type": "object",
+  "properties": {
+    "upstream": { "type": "string", "description": "上游地址，如 https://gw.example.com" },
+    "token": { "type": "string", "description": "上游 Token，不带 Bearer 前缀" },
+    "tokenMode": { "type": "string", "enum": ["bearer", "x-api-key", "both"], "description": "Token 注入方式" },
+    "profile": {
+      "type": "string",
+      "enum": ["codex", "claude-code", "opencode", "cursor", "cline", "roo", "kilo", "copilot", "grok-cli", "trae", "qoder", "custom"],
+      "description": "伪装档位"
+    },
+    "port": { "type": "integer", "minimum": 1, "maximum": 65535, "description": "本地监听端口" },
+    "host": { "type": "string", "description": "本地监听地址" },
+    "stripStainless": { "type": "boolean", "description": "删除 x-stainless-* 等 SDK 特征头" },
+    "rewriteBody": { "type": "boolean", "description": "按档位改写请求体（补 instructions / originator 字段）" },
+    "extraHeaders": { "type": "object", "description": "额外注入的请求头" },
+    "proxy": { "type": "string", "description": "上游代理，如 http://127.0.0.1:7890" },
+    "autoStart": { "type": "boolean", "description": "插件加载时自动启动" },
+    "authEnabled": { "type": "boolean", "description": "启用本地反代访问鉴权" },
+    "authMode": { "type": "string", "enum": ["bearer", "basic", "header"], "description": "鉴权方式" },
+    "authToken": { "type": "string", "description": "bearer / 自定义头的密钥" },
+    "authUser": { "type": "string", "description": "basic 鉴权用户名" },
+    "authPass": { "type": "string", "description": "basic 鉴权密码" },
+    "authHeader": { "type": "string", "description": "自定义头鉴权的头名称" },
+    "providerApiKey": { "type": "string", "description": "供一键复制到 AI 供应商的 API Key" }
+  },
+  "required": []
+}

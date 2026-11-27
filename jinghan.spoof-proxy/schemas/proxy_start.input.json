@@ -1,0 +1,12 @@
+{
+  "type": "object",
+  "properties": {
+    "port": { "type": "integer", "minimum": 1, "maximum": 65535, "description": "本地监听端口，省略用已保存配置（默认 8788，占用时自动顺延）" },
+    "profile": {
+      "type": "string",
+      "enum": ["codex", "claude-code", "opencode", "cursor", "cline", "roo", "kilo", "copilot", "grok-cli", "trae", "qoder", "custom"],
+      "description": "伪装档位"
+    }
+  },
+  "required": []
+}

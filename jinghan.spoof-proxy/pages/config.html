@@ -1,0 +1,616 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>客户端伪装反代</title>
+<link rel="stylesheet" href="/__aicode/theme.css">
+<link rel="stylesheet" href="/__aicode/ui.css">
+<style>
+  :root {
+    --sp-bg: var(--aicode-page-bg, #101114);
+    --sp-surface: var(--aicode-surface, #1a1c20);
+    --sp-on: var(--aicode-on-surface, #e8eaed);
+    --sp-dim: var(--aicode-on-surface-variant, #9aa0a6);
+    --sp-line: rgba(255, 255, 255, .10);
+    --sp-accent: #4c8dff;
+    --sp-ok: #35c07a;
+    --sp-warn: #e0a53a;
+    --sp-err: #e05b5b;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0; padding: 12px 12px 40px;
+    background: var(--sp-bg); color: var(--sp-on);
+    font-family: var(--aicode-font-sans, -apple-system, "PingFang SC", "Noto Sans CJK SC", sans-serif);
+    font-size: calc(14px * var(--aicode-font-scale, 1));
+    line-height: 1.55;
+  }
+  h1 { font-size: 1.06em; margin: 4px 0 10px; font-weight: 600; }
+  .card {
+    background: var(--sp-surface); border: 1px solid var(--sp-line);
+    border-radius: 14px; padding: 12px 13px; margin-bottom: 10px;
+  }
+  .card > .title {
+    font-size: .84em; color: var(--sp-dim); letter-spacing: .04em;
+    text-transform: uppercase; margin-bottom: 8px; font-weight: 600;
+  }
+  .row { display: flex; align-items: center; gap: 8px; margin: 9px 0; }
+  .row:first-child { margin-top: 0; }
+  .row > label { flex: 0 0 96px; color: var(--sp-dim); font-size: .92em; }
+  .row > .grow { flex: 1 1 auto; min-width: 0; }
+  input[type=text], input[type=password], input[type=number], textarea, select {
+    width: 100%; padding: 8px 10px; border-radius: 9px;
+    border: 1px solid var(--sp-line); background: rgba(255,255,255,.04);
+    color: var(--sp-on); font-size: .95em; font-family: inherit;
+    outline: none; appearance: none;
+  }
+  input:focus, textarea:focus, select:focus { border-color: var(--sp-accent); }
+  textarea { resize: vertical; min-height: 68px; font-family: ui-monospace, Menlo, monospace; font-size: .86em; }
+  .seg { display: flex; gap: 4px; flex-wrap: wrap; }
+  .seg button {
+    flex: 0 0 auto; padding: 6px 11px; border-radius: 8px; font-size: .88em;
+    border: 1px solid var(--sp-line); background: transparent; color: var(--sp-dim);
+    font-family: inherit;
+  }
+  .seg button.on { background: rgba(76,141,255,.16); border-color: var(--sp-accent); color: #cfe0ff; }
+  .btns { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  button.act {
+    flex: 1 1 auto; min-width: 96px; padding: 10px 12px; border-radius: 10px;
+    border: 1px solid var(--sp-line); background: rgba(255,255,255,.05);
+    color: var(--sp-on); font-size: .92em; font-family: inherit; font-weight: 500;
+  }
+  button.act:active { transform: scale(.985); }
+  button.act.primary { background: var(--sp-accent); border-color: var(--sp-accent); color: #fff; }
+  button.act.danger { color: #ffc4c4; border-color: rgba(224,91,91,.5); }
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 3px 9px; border-radius: 999px; font-size: .82em;
+    background: rgba(255,255,255,.07);
+  }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--sp-dim); }
+  .dot.on { background: var(--sp-ok); box-shadow: 0 0 7px var(--sp-ok); }
+  .mono { font-family: ui-monospace, Menlo, monospace; font-size: .86em; word-break: break-all; }
+  .addr { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+  .addr .mono { flex: 1 1 auto; background: rgba(255,255,255,.05); padding: 8px 10px; border-radius: 9px; }
+  .addr button { flex: 0 0 auto; padding: 8px 12px; border-radius: 9px; border: 1px solid var(--sp-line); background: transparent; color: var(--sp-on); font-family: inherit; font-size: .86em; }
+  .kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(88px, 1fr)); gap: 8px; margin-top: 8px; }
+  .kv > div { background: rgba(255,255,255,.04); border-radius: 10px; padding: 8px 10px; }
+  .kv .n { font-size: 1.15em; font-weight: 600; }
+  .kv .l { font-size: .76em; color: var(--sp-dim); margin-top: 1px; }
+  .list { margin-top: 8px; max-height: 260px; overflow: auto; }
+  .item {
+    border-top: 1px solid var(--sp-line); padding: 7px 0; font-size: .84em;
+    display: flex; gap: 8px; align-items: baseline;
+  }
+  .item:first-child { border-top: none; }
+  .item .code { flex: 0 0 auto; font-family: ui-monospace, Menlo, monospace; }
+  .item .u { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--sp-dim); }
+  .item .t { flex: 0 0 auto; color: var(--sp-dim); font-size: .92em; }
+  .s2 { color: var(--sp-ok); } .s4 { color: var(--sp-warn); } .s5 { color: var(--sp-err); }
+  .hint { font-size: .8em; color: var(--sp-dim); margin-top: 6px; }
+  pre.out {
+    margin: 8px 0 0; padding: 9px 10px; border-radius: 10px; max-height: 220px; overflow: auto;
+    background: rgba(0,0,0,.32); font-size: .8em; white-space: pre-wrap; word-break: break-all;
+    font-family: ui-monospace, Menlo, monospace; color: #b9c4d0;
+  }
+  .sw { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 0; }
+  .sw .lbl { font-size: .93em; }
+  .sw .sub { font-size: .78em; color: var(--sp-dim); }
+  .toggle { flex: 0 0 auto; width: 44px; height: 26px; border-radius: 999px; background: rgba(255,255,255,.13); position: relative; border: none; padding: 0; transition: background .16s; }
+  .toggle::after { content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; transition: transform .16s; }
+  .toggle.on { background: var(--sp-accent); }
+  .toggle.on::after { transform: translateX(18px); }
+  .empty { color: var(--sp-dim); font-size: .84em; padding: 6px 0; }
+  .toast {
+    position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%) translateY(16px);
+    background: #2a2d33; color: #fff; padding: 9px 16px; border-radius: 999px;
+    font-size: .86em; opacity: 0; pointer-events: none; transition: opacity .18s, transform .18s;
+    max-width: 88vw; text-align: center; z-index: 99;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<h1>客户端伪装反代</h1>
+
+<div class="card">
+  <div class="title">运行状态</div>
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+    <span class="pill"><span class="dot" id="dot"></span><span id="stateText">未启动</span></span>
+    <span class="pill mono" id="profilePill">—</span>
+  </div>
+  <div class="addr">
+    <div class="mono" id="localUrl">未监听</div>
+    <button id="copyBtn">复制</button>
+  </div>
+  <div class="hint">把聊天客户端的 base_url 指到上面的地址即可；OpenAI 格式客户端填到 <span class="mono">/v1</span> 结尾那一段。</div>
+  <div class="addr" id="providerKeyRow" style="margin-top:6px" hidden>
+    <div class="mono" id="providerKey">—</div>
+    <button id="copyKeyBtn">复制 Key</button>
+  </div>
+  <div class="hint" id="providerKeyHint" hidden></div>
+  <div class="kv">
+    <div><div class="n" id="nReq">0</div><div class="l">总请求</div></div>
+    <div><div class="n" id="nFwd">0</div><div class="l">已转发</div></div>
+    <div><div class="n" id="nErr">0</div><div class="l">上游错误</div></div>
+    <div><div class="n" id="nLast">—</div><div class="l">末次状态</div></div>
+  </div>
+  <div class="btns">
+    <button class="act primary" id="btnStart">启动</button>
+    <button class="act danger" id="btnStop">停止</button>
+    <button class="act" id="btnTest">测试上游</button>
+    <button class="act" id="btnClear">清空统计</button>
+  </div>
+  <pre class="out" id="testOut" hidden></pre>
+</div>
+
+<div class="card">
+  <div class="title">上游</div>
+  <div class="row">
+    <label>上游地址</label>
+    <div class="grow"><input type="text" id="upstream" placeholder="https://gw.example.com"></div>
+  </div>
+  <div class="row">
+    <label>Token</label>
+    <div class="grow"><input type="password" id="token" placeholder="sk-..."></div>
+  </div>
+  <div class="row">
+    <label>注入方式</label>
+    <div class="grow seg" id="tokenMode">
+      <button data-v="bearer">Bearer</button>
+      <button data-v="x-api-key">x-api-key</button>
+      <button data-v="both">两者都发</button>
+    </div>
+  </div>
+  <div class="row">
+    <label>上游代理</label>
+    <div class="grow"><input type="text" id="proxy" placeholder="http://127.0.0.1:7890（可留空）"></div>
+  </div>
+  <div class="hint">Token 只保存在插件私有目录 data://，不会进入宿主备份。</div>
+</div>
+
+<div class="card">
+  <div class="title">伪装档位</div>
+  <div class="seg" id="profileSeg" style="margin-bottom:8px"></div>
+  <div class="row">
+    <label>自定义 UA</label>
+    <div class="grow"><input type="text" id="uaPreview" readonly></div>
+  </div>
+  <div class="hint" id="uaHint"></div>
+</div>
+
+<div class="card">
+  <div class="title">访问鉴权</div>
+  <div class="sw">
+    <div><div class="lbl">启用鉴权</div><div class="sub">校验访问反代的请求，未通过返回 401</div></div>
+    <button class="toggle" id="authEnabled"></button>
+  </div>
+  <div class="row">
+    <label>校验方式</label>
+    <div class="grow seg" id="authMode">
+      <button data-v="bearer">Bearer</button>
+      <button data-v="basic">Basic</button>
+      <button data-v="header">自定义头</button>
+    </div>
+  </div>
+  <div class="row" id="authTokenRow">
+    <label>密钥</label>
+    <div class="grow"><input type="password" id="authToken" placeholder="留空表示不修改"></div>
+  </div>
+  <div class="row" id="authUserRow">
+    <label>用户名</label>
+    <div class="grow"><input type="text" id="authUser" placeholder="muse"></div>
+  </div>
+  <div class="row" id="authPassRow">
+    <label>密码</label>
+    <div class="grow"><input type="password" id="authPass" placeholder="留空表示不修改"></div>
+  </div>
+  <div class="row" id="authHeaderRow">
+    <label>头名称</label>
+    <div class="grow"><input type="text" id="authHeader" placeholder="x-api-key"></div>
+  </div>
+  <div class="hint">启用后客户端需带对应凭证访问。状态页 <span class="mono">/__spoof</span> 与 <span class="mono">/__spoof/health</span> 免鉴权，OPTIONS 预检直接放行。</div>
+</div>
+
+<div class="card">
+  <div class="title">服务</div>
+  <div class="row">
+    <label>监听端口</label>
+    <div class="grow"><input type="number" id="port" min="1" max="65535" placeholder="8788"></div>
+  </div>
+  <div class="sw">
+    <div><div class="lbl">剔除 SDK 特征头</div><div class="sub">删除客户端自带的 x-stainless-* 与 openai-python 痕迹</div></div>
+    <button class="toggle on" id="stripStainless"></button>
+  </div>
+  <div class="sw">
+    <div><div class="lbl">改写请求体</div><div class="sub">按档位补 instructions / store / stream 等字段，尽量贴近真实客户端</div></div>
+    <button class="toggle" id="rewriteBody"></button>
+  </div>
+  <div class="sw">
+    <div><div class="lbl">原生接管（不改 baseUrl）</div><div class="sub">开启后由本软件的 agent.http.before 钩子直接把请求改写并发往上游，供应商地址保持原样、免开本地端口</div></div>
+    <button class="toggle" id="nativeMode"></button>
+  </div>
+  <div class="row">
+    <label>接管域名</label>
+    <div class="grow"><input type="text" id="nativeHosts" placeholder="api.example.com, gw.example.com（留空 = 全部 provider）"></div>
+  </div>
+  <div class="hint">只接管列出的域名，其他供应商流量原样放行。留空则接管所有 provider 请求，请确认只想要一个上游时再留空。</div>
+  <div class="sw">
+    <div><div class="lbl">随插件自启</div><div class="sub">插件加载后立即监听（原生接管开启时自动跳过）</div></div>
+    <button class="toggle" id="autoStart"></button>
+  </div>
+</div>
+
+<div class="card">
+  <div class="title">额外请求头</div>
+  <textarea id="extraHeaders" placeholder='{ "x-custom": "value" }'></textarea>
+  <div class="hint">JSON 对象，覆盖同名头。用于补齐网关额外要求的字段。</div>
+  <div class="btns">
+    <button class="act primary" id="btnSave">保存配置</button>
+  </div>
+</div>
+
+<div class="card">
+  <div class="title">最近请求</div>
+  <div class="list" id="recent"><div class="empty">暂无</div></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="/__aicode/aicode.js"></script>
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  let state = { running: false, port: null, localBaseUrl: null, credential: null, config: {}, profiles: [], stats: {} };
+  let draft = {};
+  let lastBlocked = null;
+
+  function toast(text) {
+    const t = $('toast');
+    t.textContent = text;
+    t.classList.add('show');
+    clearTimeout(t._timer);
+    t._timer = setTimeout(() => t.classList.remove('show'), 1900);
+  }
+
+  function setToggle(el, on) {
+    el.classList.toggle('on', !!on);
+  }
+
+  function readToggle(el) {
+    return el.classList.contains('on');
+  }
+
+  function pickProfile() {
+    return draft.profile || 'codex';
+  }
+
+  function uaOf(id) {
+    const p = state.profiles.find((x) => x.id === id);
+    return p ? p.userAgent : '';
+  }
+
+  function renderProfiles() {
+    const seg = $('profileSeg');
+    seg.innerHTML = '';
+    state.profiles.forEach((p) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.dataset.v = p.id;
+      b.textContent = p.label;
+      b.classList.toggle('on', p.id === pickProfile());
+      b.onclick = () => {
+        draft.profile = p.id;
+        renderProfiles();
+      };
+      seg.appendChild(b);
+    });
+    $('uaPreview').value = uaOf(pickProfile());
+    const known = state.profiles.find((p) => p.id === pickProfile());
+    $('uaHint').textContent = known
+      ? '发送的 User-Agent 形如上面这行。档位头按 ' + known.label + ' 的真实客户端补齐。'
+      : '';
+    $('profilePill').textContent = known ? known.label : pickProfile();
+  }
+
+  function renderTokenMode() {
+    Array.from($('tokenMode').children).forEach((b) => {
+      b.classList.toggle('on', b.dataset.v === (draft.tokenMode || 'bearer'));
+      b.onclick = () => {
+        draft.tokenMode = b.dataset.v;
+        renderTokenMode();
+      };
+    });
+  }
+
+  function renderAuthMode() {
+    Array.from($('authMode').children).forEach((b) => {
+      b.classList.toggle('on', b.dataset.v === (draft.authMode || 'bearer'));
+      b.onclick = () => {
+        draft.authMode = b.dataset.v;
+        renderAuthMode();
+      };
+    });
+    const mode = draft.authMode || 'bearer';
+    $('authTokenRow').hidden = mode === 'basic';
+    $('authUserRow').hidden = mode !== 'basic';
+    $('authPassRow').hidden = mode !== 'basic';
+    $('authHeaderRow').hidden = mode !== 'header';
+  }
+
+  function fillForm() {
+    const c = draft;
+    $('upstream').value = c.upstream || '';
+    $('token').value = c.token && c.token.indexOf('****') < 0 ? c.token : '';
+    $('token').placeholder = c.token && c.token.indexOf('****') >= 0 ? c.token : 'sk-...';
+    $('proxy').value = c.proxy || '';
+    $('port').value = c.port || 8788;
+    $('extraHeaders').value = c.extraHeaders && Object.keys(c.extraHeaders).length
+      ? JSON.stringify(c.extraHeaders, null, 2) : '';
+    setToggle($('stripStainless'), c.stripStainless !== false);
+    setToggle($('rewriteBody'), !!c.rewriteBody);
+    setToggle($('autoStart'), !!c.autoStart);
+    setToggle($('nativeMode'), !!c.nativeMode);
+    $('nativeHosts').value = (c.nativeHosts || []).join(', ');
+    setToggle($('authEnabled'), !!c.authEnabled);
+    $('authToken').value = c.authToken && c.authToken.indexOf('****') < 0 ? c.authToken : '';
+    $('authToken').placeholder = c.authToken && c.authToken.indexOf('****') >= 0 ? c.authToken : '留空表示不修改';
+    $('authUser').value = c.authUser || 'muse';
+    $('authPass').value = '';
+    $('authPass').placeholder = c.authPass && c.authPass.indexOf('****') >= 0 ? '已设置，留空不修改' : '留空表示不修改';
+    $('authHeader').value = c.authHeader || 'x-api-key';
+    renderAuthMode();
+    renderTokenMode();
+    renderProfiles();
+  }
+
+  function collectForm() {
+    let extra = {};
+    const raw = $('extraHeaders').value.trim();
+    if (raw) {
+      try { extra = JSON.parse(raw); } catch (e) { throw new Error('额外请求头不是合法 JSON'); }
+    }
+    const out = {
+      upstream: $('upstream').value.trim(),
+      tokenMode: draft.tokenMode || 'bearer',
+      profile: draft.profile || 'codex',
+      port: Number($('port').value) || 8788,
+      proxy: $('proxy').value.trim(),
+      extraHeaders: extra,
+      stripStainless: readToggle($('stripStainless')),
+      rewriteBody: readToggle($('rewriteBody')),
+      autoStart: readToggle($('autoStart')),
+      nativeMode: readToggle($('nativeMode')),
+      nativeHosts: ($('nativeHosts').value || '').split(/[\s,]+/).filter(Boolean),
+      authEnabled: readToggle($('authEnabled')),
+      authMode: draft.authMode || 'bearer',
+      authUser: $('authUser').value.trim() || 'muse',
+      authHeader: $('authHeader').value.trim() || 'x-api-key',
+    };
+    const tk = $('token').value.trim();
+    if (tk) out.token = tk;
+    const atk = $('authToken').value.trim();
+    if (atk) out.authToken = atk;
+    const apw = $('authPass').value;
+    if (apw) out.authPass = apw;
+    return out;
+  }
+
+  function statusClass(code) {
+    if (!code) return '';
+    if (code < 300) return 's2';
+    if (code < 500) return 's4';
+    return 's5';
+  }
+
+  function renderState() {
+    const on = !!state.running;
+    $('dot').classList.toggle('on', on || !!state.nativeMode);
+    $('stateText').textContent = on ? '运行中' : (state.nativeMode ? '钩子接管中' : '未启动');
+    $('localUrl').textContent = state.localBaseUrl || (state.nativeMode ? '原生接管：无需本地端口' : '未监听');
+    const cred = state.credential || {};
+    $('providerKeyRow').hidden = !cred.key;
+    $('providerKey').textContent = cred.key || '—';
+    const sync = state.providerSync || {};
+    const hints = [];
+    if (cred.hint) hints.push(cred.hint);
+    if (sync.note) hints.push((sync.ok === true ? '✓ ' : sync.ok === false ? '✗ ' : '· ') + sync.note);
+    $('providerKeyHint').textContent = hints.join('\n');
+    $('providerKeyHint').hidden = !hints.length;
+    $('copyKeyBtn').disabled = !cred.key;
+    const s = state.stats || {};
+    $('nReq').textContent = s.requests || 0;
+    $('nFwd').textContent = s.forwarded || 0;
+    $('nErr').textContent = s.upstreamErrors || 0;
+    $('nLast').textContent = s.lastStatus || '—';
+    $('nLast').className = 'n ' + statusClass(s.lastStatus);
+
+    const list = $('recent');
+    const items = s.recent || [];
+    if (!items.length) {
+      list.innerHTML = '<div class="empty">暂无</div>';
+    } else {
+      list.innerHTML = '';
+      items.forEach((r) => {
+        const d = document.createElement('div');
+        d.className = 'item';
+        const code = r.upstreamStatus || r.status || 0;
+        d.innerHTML = '<span class="code ' + statusClass(code) + '">' + (code || '—') + '</span>' +
+          '<span class="u"></span>' +
+          '<span class="t">' + (r.ms ? r.ms + 'ms' : '') + '</span>';
+        const u = d.querySelector('.u');
+        u.textContent = (r.method || '') + ' ' + (r.url || '');
+        u.title = (r.error ? '错误: ' + r.error + ' | ' : '') + (r.target || '');
+        list.appendChild(d);
+      });
+    }
+
+    if (s.lastError && s.lastError.message) {
+      const box = $('testOut');
+      box.hidden = false;
+      box.textContent = '最近错误: ' + s.lastError.message + (s.lastError.body ? '\n\n' + s.lastError.body : '');
+    }
+  }
+
+  async function refresh() {
+    try {
+      const r = await aicode.invoke('ui.getState', {});
+      state = r;
+      draft = Object.assign({}, r.config);
+      fillForm();
+      renderState();
+      if (r.note) toast(r.note);
+    } catch (e) {
+      toast('读取状态失败: ' + (e && e.message || e));
+    }
+  }
+
+  async function save(quiet) {
+    let payload;
+    try {
+      payload = collectForm();
+    } catch (e) {
+      toast(e.message);
+      return false;
+    }
+    try {
+      const r = await aicode.invoke('ui.saveConfig', payload);
+      state.running = r.running;
+      state.port = r.port;
+      state.localBaseUrl = r.localBaseUrl || (r.running ? 'http://127.0.0.1:' + r.port + '/v1' : null);
+      if (r.credential) state.credential = r.credential;
+      draft = Object.assign({}, r.config);
+      fillForm();
+      if (r.note) toast(r.note);
+      else if (!quiet) toast('已保存');
+      return true;
+    } catch (e) {
+      toast('保存失败: ' + (e && e.message || e));
+      return false;
+    }
+  }
+
+  $('btnStart').onclick = async () => {
+    const ok = await save(true);
+    if (!ok) return;
+    try {
+      const r = await aicode.invoke('ui.start', { port: Number($('port').value) || 8788, profile: draft.profile });
+      $('port').value = r.port;
+      if (r.note) toast(r.note);
+      else toast(r.already ? '已在运行' : '已启动 :' + r.port);
+      await refresh();
+    } catch (e) {
+      toast('启动失败: ' + (e && e.message || e));
+    }
+  };
+
+  $('btnStop').onclick = async () => {
+    try {
+      await aicode.invoke('ui.stop', {});
+      toast('已停止');
+      await refresh();
+    } catch (e) {
+      toast('停止失败: ' + (e && e.message || e));
+    }
+  };
+
+  $('btnTest').onclick = async () => {
+    const ok = await save(true);
+    if (!ok) return;
+    const out = $('testOut');
+    out.hidden = false;
+    out.textContent = '请求中…';
+    try {
+      const r = await aicode.invoke('ui.test', {});
+      if (r.ok) {
+        out.textContent = '通过 · HTTP ' + r.status + '\nUA: ' + r.sentUserAgent + '\n' + r.target + '\n\n' + (r.body || '');
+        toast('上游放行');
+      } else {
+        out.textContent = (r.error ? '失败: ' + r.error : 'HTTP ' + r.status) + '\nUA: ' + (r.sentUserAgent || '') + '\n' + (r.target || '') + '\n\n' + (r.body || '');
+        toast('上游拒绝');
+      }
+    } catch (e) {
+      out.textContent = '调用失败: ' + (e && e.message || e);
+    }
+  };
+
+  $('btnClear').onclick = async () => {
+    try {
+      await aicode.invoke('ui.clearStats', {});
+      $('testOut').hidden = true;
+      await refresh();
+      toast('已清空');
+    } catch (e) {
+      toast('清空失败: ' + (e && e.message || e));
+    }
+  };
+
+  $('btnSave').onclick = () => save(false);
+
+  async function copyText(text) {
+    // 本宿主页面桥：aicode.clipboard.write(text)；旧宿主才是 aicode.call('clipboard.write', {text})
+    if (typeof aicode !== 'undefined' && aicode.clipboard && typeof aicode.clipboard.write === 'function') {
+      await aicode.clipboard.write(text);
+      return true;
+    }
+    if (typeof aicode !== 'undefined' && typeof aicode.call === 'function') {
+      await aicode.call('clipboard.write', { text });
+      return true;
+    }
+    return false;
+  }
+
+  $('copyBtn').onclick = async () => {
+    const text = state.localBaseUrl;
+    if (!text) { toast('尚未监听'); return; }
+    try {
+      if (await copyText(text)) toast('已复制 ' + text);
+      else toast('当前宿主不支持写剪贴板');
+    } catch (e) {
+      toast('复制失败: ' + (e && e.message || e));
+    }
+  };
+
+  $('copyKeyBtn').onclick = async () => {
+    const text = state.credential && state.credential.key;
+    if (!text) { toast('无可复制的 Key'); return; }
+    try {
+      if (await copyText(text)) toast('已复制供应商 API Key');
+      else toast('当前宿主不支持写剪贴板');
+    } catch (e) {
+      toast('复制失败: ' + (e && e.message || e));
+    }
+  };
+
+  ['stripStainless', 'rewriteBody', 'autoStart', 'authEnabled', 'nativeMode'].forEach((id) => {
+    $(id).onclick = () => {
+      $(id).classList.toggle('on');
+    };
+  });
+
+
+  aicode.events.on('spoof.blocked', (payload) => {
+    const out = $('testOut');
+    out.hidden = false;
+    out.textContent = '上游拦截 · HTTP ' + (payload.status || 403) + '\n' + (payload.body || '');
+    toast('上游仍在拦截，换档位再试');
+  });
+
+  refresh();
+  setInterval(() => {
+    if (document.hidden) return;
+    aicode.invoke('ui.getState', {}).then((r) => {
+      state.running = r.running;
+      state.port = r.port;
+      state.localBaseUrl = r.localBaseUrl;
+      state.credential = r.credential;
+      state.stats = r.stats;
+      renderState();
+    }).catch(() => {});
+  }, 4000);
+})();
+</script>
+</body>
+</html>

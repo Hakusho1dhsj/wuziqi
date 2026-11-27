@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>破甲台</title>
+<link rel="stylesheet" href="/__aicode/theme.css">
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 14px 14px 28px;
+    background: var(--aicode-bg, #0e1116);
+    color: var(--aicode-on-surface, #e6e8ec);
+    font-size: calc(14px * var(--aicode-font-scale, 1));
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    line-height: 1.5;
+  }
+  h1 { font-size: 1.1em; margin: 0 0 2px; font-weight: 640; }
+  .sub { opacity: .62; font-size: .86em; margin-bottom: 14px; }
+  .section-title { font-size: .82em; font-weight: 620; opacity: .78; margin: 18px 0 8px; letter-spacing: .04em; }
+  .packs { display: grid; gap: 8px; }
+  .pack {
+    border: 1px solid var(--aicode-border, rgba(128,128,128,.28));
+    border-radius: 10px; padding: 10px 12px; cursor: pointer;
+    background: var(--aicode-surface, rgba(255,255,255,.05));
+    transition: border-color .15s, background .15s;
+  }
+  .pack:hover { border-color: rgba(128,128,128,.55); }
+  .pack.on { border-color: #e8412c; background: rgba(232,65,44,.10); }
+  .pack.off { opacity: .48; cursor: not-allowed; }
+  .pack-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  .pack-name { font-weight: 620; }
+  .tag { font-size: .72em; padding: 1px 6px; border-radius: 999px; border: 1px solid rgba(128,128,128,.4); opacity: .85; }
+  .tag.stable { color: #37c26a; border-color: rgba(55,194,106,.5); }
+  .tag.prerelease { color: #e8a13c; border-color: rgba(232,161,60,.5); }
+  .tag.unreleased { color: #8b93a1; }
+  .meta { font-size: .8em; opacity: .66; margin-top: 4px; word-break: break-all; }
+  .eval { font-size: .78em; opacity: .72; margin-top: 5px; border-left: 2px solid rgba(232,65,44,.45); padding-left: 7px; }
+  .targets { display: flex; flex-direction: column; gap: 6px; }
+  .target { display: flex; gap: 8px; align-items: flex-start; padding: 8px 10px; border: 1px solid var(--aicode-border, rgba(128,128,128,.22)); border-radius: 8px; }
+  .target input { margin-top: 3px; accent-color: #e8412c; }
+  .target .name { font-weight: 560; }
+  .target .note { font-size: .78em; opacity: .6; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+  button {
+    font: inherit; font-size: .88em; padding: 8px 14px; border-radius: 8px; cursor: pointer;
+    border: 1px solid var(--aicode-border, rgba(128,128,128,.35));
+    background: var(--aicode-surface, rgba(255,255,255,.06));
+    color: inherit;
+  }
+  button:hover { border-color: rgba(128,128,128,.7); }
+  button.primary { background: #e8412c; border-color: transparent; color: #fff; font-weight: 620; }
+  button.primary:hover { opacity: .9; }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  pre {
+    margin: 8px 0 0; padding: 10px; border-radius: 8px; overflow: auto; max-height: 320px;
+    background: rgba(0,0,0,.34); border: 1px solid var(--aicode-border, rgba(128,128,128,.18));
+    font-size: .78em; line-height: 1.45; white-space: pre-wrap; word-break: break-word;
+  }
+  .log { margin-top: 12px; font-size: .8em; max-height: 190px; overflow: auto; }
+  .log div { padding: 3px 0; border-bottom: 1px solid rgba(128,128,128,.12); }
+  .log .err { color: #ef5b5b; }
+  .log .ok { color: #37c26a; }
+  .status-line { font-size: .84em; opacity: .8; margin-top: 10px; }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+  <h1>破甲台</h1>
+  <div class="sub">破甲包目录与一键注入 · 来源 MDX-Tom/gpt-instruct</div>
+
+  <div class="section-title">破甲包</div>
+  <div class="packs" id="packs"></div>
+
+  <div class="section-title">注入目标</div>
+  <div class="targets" id="targets"></div>
+
+  <div class="row">
+    <button id="btnPreview">预演（不写盘）</button>
+    <button id="btnInject" class="primary">注入</button>
+    <button id="btnRemove">撤销注入</button>
+    <button id="btnRefresh">刷新状态</button>
+  </div>
+
+  <div class="status-line" id="statusLine">读取中…</div>
+
+  <div id="previewWrap" class="hidden">
+    <div class="section-title">正文预览</div>
+    <pre id="preview"></pre>
+  </div>
+
+  <div class="log" id="log"></div>
+
+<script src="/__aicode/aicode.js"></script>
+<script>
+(function () {
+  var state = { packs: [], selected: '', targets: { aicode: true, 'aicode-agents': false, codex: false } };
+
+  function invoke(handler, args) {
+    if (!window.aicode || typeof window.aicode.invoke !== 'function') {
+      return Promise.reject(new Error('aicode 桥不可用'));
+    }
+    return window.aicode.invoke(handler, args || {});
+  }
+
+  function log(text, kind) {
+    var box = document.getElementById('log');
+    var div = document.createElement('div');
+    if (kind) div.className = kind;
+    div.textContent = text;
+    box.insertBefore(div, box.firstChild);
+    while (box.children.length > 60) box.removeChild(box.lastChild);
+  }
+
+  function el(tag, cls, text) {
+    var node = document.createElement(tag);
+    if (cls) node.className = cls;
+    if (text !== undefined && text !== null) node.textContent = text;
+    return node;
+  }
+
+  function tagClass(status) {
+    if (status === 'stable') return 'tag stable';
+    if (status === 'prerelease') return 'tag prerelease';
+    return 'tag unreleased';
+  }
+
+  function tagLabel(status) {
+    if (status === 'stable') return '稳定';
+    if (status === 'prerelease') return '预发布';
+    return '未发布';
+  }
+
+  function renderPacks() {
+    var box = document.getElementById('packs');
+    box.innerHTML = '';
+    state.packs.forEach(function (pack) {
+      var card = el('div', 'pack' + (pack.id === state.selected ? ' on' : '') + (pack.deployable ? '' : ' off'));
+      var head = el('div', 'pack-head');
+      head.appendChild(el('span', 'pack-name', pack.name));
+      head.appendChild(el('span', tagClass(pack.status), tagLabel(pack.status)));
+      head.appendChild(el('span', 'tag', pack.version));
+      card.appendChild(head);
+      var meta = pack.deployable
+        ? pack.bytes + ' B · ' + pack.lines + ' 行 · sha256[16] ' + pack.sha256_16
+        : '仓库内无正文';
+      card.appendChild(el('div', 'meta', meta));
+      if (pack.eval) card.appendChild(el('div', 'eval', pack.eval));
+      if (pack.deployable) {
+        card.addEventListener('click', function () {
+          state.selected = pack.id;
+          renderPacks();
+          preview(pack.id);
+        });
+      }
+      box.appendChild(card);
+    });
+  }
+
+  function renderTargets() {
+    var box = document.getElementById('targets');
+    box.innerHTML = '';
+    var defs = [
+      { id: 'aicode', name: 'AiCode 自定义提示词', note: '写入 prompts.custom/<编号>-breach.md，下一次会话生效' },
+      { id: 'aicode-agents', name: '工作区 AGENTS.md', note: '围栏段，重复注入整段替换' },
+      { id: 'codex', name: 'Codex model_instructions_file', note: '复制正文到 CODEX_HOME 并改写 config.toml 顶层键' }
+    ];
+    defs.forEach(function (def) {
+      var row = el('label', 'target');
+      var input = document.createElement('input');
+      input.type = 'checkbox';
+      input.checked = !!state.targets[def.id];
+      input.addEventListener('change', function () { state.targets[def.id] = input.checked; });
+      var text = el('div');
+      text.appendChild(el('div', 'name', def.name));
+      text.appendChild(el('div', 'note', def.note));
+      row.appendChild(input);
+      row.appendChild(text);
+      box.appendChild(row);
+    });
+  }
+
+  function pickTargets() {
+    return Object.keys(state.targets).filter(function (key) { return state.targets[key]; });
+  }
+
+  function preview(packId) {
+    invoke('ui.show', { pack: packId, head: 80 }).then(function (res) {
+      var wrap = document.getElementById('previewWrap');
+      var pre = document.getElementById('preview');
+      if (!res || !res.hasBody) {
+        wrap.classList.remove('hidden');
+        pre.textContent = res && res.message ? res.message : '没有正文';
+        return;
+      }
+      wrap.classList.remove('hidden');
+      pre.textContent = '// ' + packId + ' · ' + res.lines + ' 行 · ' + res.bytes + ' B · sha256[16]=' + res.verify.actual + (res.truncated ? '（仅前 80 行）' : '') + '\n\n' + res.body;
+    }).catch(function (err) { log('预览失败：' + err.message, 'err'); });
+  }
+
+  function refreshStatus() {
+    invoke('ui.status', {}).then(function (res) {
+      document.getElementById('statusLine').textContent = res.message;
+      (res.rows || []).forEach(function (row) {
+        log((row.injected ? '已注入  ' : '未注入  ') + row.name + (row.record ? ' · ' + row.record.pack : ''), row.injected ? 'ok' : '');
+      });
+    }).catch(function (err) { log('状态读取失败：' + err.message, 'err'); });
+  }
+
+  function loadPacks() {
+    invoke('ui.packs', {}).then(function (res) {
+      state.packs = res.packs || [];
+      if (!state.selected) {
+        var first = state.packs.filter(function (p) { return p.deployable; })[0];
+        if (first) state.selected = first.id;
+      }
+      renderPacks();
+      log(res.message);
+      if (state.selected) preview(state.selected);
+    }).catch(function (err) { log('目录读取失败：' + err.message, 'err'); });
+  }
+
+  function doInject(dryRun) {
+    if (!state.selected) { log('先选一个可部署的包', 'err'); return; }
+    var targets = pickTargets();
+    if (!targets.length) { log('至少勾一个注入目标', 'err'); return; }
+    if (!dryRun) {
+      var pack = state.packs.filter(function (p) { return p.id === state.selected; })[0];
+      if (!window.confirm('确认把「' + (pack ? pack.name : state.selected) + '」写入 ' + targets.join('、') + '？\n原文件会先备份。')) return;
+    }
+    invoke('ui.inject', { pack: state.selected, targets: targets, confirm: !dryRun, dryRun: dryRun }).then(function (res) {
+      log(res.message, res.ok ? 'ok' : 'err');
+      (res.results || []).forEach(function (item) {
+        (item.files || []).forEach(function (file) {
+          if (file.written) log('  写入 ' + file.file + ' (' + file.bytes + ' B)' + (file.backup ? ' · 备份 ' + file.backup : ''), '');
+          else if (file.reason) log('  跳过 ' + file.file + '：' + file.reason, '');
+        });
+      });
+      refreshStatus();
+    }).catch(function (err) { log('注入失败：' + err.message, 'err'); });
+  }
+
+  function doRemove() {
+    var targets = pickTargets();
+    if (!targets.length) { log('至少勾一个目标', 'err'); return; }
+    if (!window.confirm('确认清除 ' + targets.join('、') + ' 的破甲注入？')) return;
+    invoke('ui.remove', { targets: targets, confirm: true }).then(function (res) {
+      log(res.message, 'ok');
+      refreshStatus();
+    }).catch(function (err) { log('撤销失败：' + err.message, 'err'); });
+  }
+
+  document.getElementById('btnPreview').addEventListener('click', function () { doInject(true); });
+  document.getElementById('btnInject').addEventListener('click', function () { doInject(false); });
+  document.getElementById('btnRemove').addEventListener('click', doRemove);
+  document.getElementById('btnRefresh').addEventListener('click', refreshStatus);
+
+  renderTargets();
+  loadPacks();
+  refreshStatus();
+})();
+</script>
+</body>
+</html>

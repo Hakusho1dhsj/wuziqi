@@ -1,0 +1,82 @@
+{
+  "manifestVersion": 1,
+  "id": "lcs.breach",
+  "name": "破甲台",
+  "version": "1.0.0",
+  "publisher": "lcs",
+  "repository": "https://github.com/Hakusho1dhsj/wuziqi",
+  "description": "把 GPT 系列的破甲提示词包做成可注入的资源：列出包目录（含目标模型、字节、sha、公开评测读数），取正文，写进 AiCode 自己的自定义提示词或 Codex 的 model_instructions_file。三个已发布包（GPT-6 Astra / GPT-6.1 Sol / GPT-5.6 Sol），两个未发布条目只展示状态。",
+  "license": "MIT",
+  "engines": { "pluginApi": "^1.0.0" },
+  "icon": "icons/icon.png",
+  "runtime": {
+    "type": "javascript",
+    "entry": "dist/main.js"
+  },
+  "configPage": "pages/breach.html",
+  "contributes": {
+    "tools": [
+      {
+        "id": "packs",
+        "title": { "zh-CN": "破甲包目录", "default": "Breach pack catalog" },
+        "description": "列出全部破甲包：目标模型、版本、状态（稳定/预发布/未发布）、字节、行数、sha256 前 16 位、公开评测读数与来源。回答「有哪些包」「哪个包对口 GPT-6.2」「能不能部署」之前先调用它。",
+        "inputSchema": "schemas/packs.input.json",
+        "handler": "tools.packs"
+      },
+      {
+        "id": "show",
+        "title": { "zh-CN": "取破甲包正文", "default": "Show breach pack" },
+        "description": "按包 id 读取正文。head 可只取前 N 行做摘要；不传 head 返回全文。未发布的条目没有正文，会返回状态说明。",
+        "inputSchema": "schemas/show.input.json",
+        "handler": "tools.show"
+      },
+      {
+        "id": "inject",
+        "title": { "zh-CN": "注入破甲包", "default": "Inject breach pack" },
+        "description": "把包写进目标。aicode 写 prompts.custom（本应用下一次会话生效，整文件写入）；aicode-agents 写工作区 AGENTS.md 围栏段；codex 复制 md 到 CODEX_HOME 并在 config.toml 顶层写入 model_instructions_file。缺省只回清单不写盘，必须传 confirm=true 才落地，传 dryRun=true 可预演。",
+        "inputSchema": "schemas/inject.input.json",
+        "handler": "tools.inject"
+      },
+      {
+        "id": "status",
+        "title": { "zh-CN": "注入状态", "default": "Injection status" },
+        "description": "逐个目标检查注入段是否存在、文件字节与内容指纹，并给出上次注入的包 id 与时间。",
+        "inputSchema": "schemas/status.input.json",
+        "handler": "tools.status"
+      },
+      {
+        "id": "remove",
+        "title": { "zh-CN": "撤销注入", "default": "Remove injection" },
+        "description": "清除注入：aicode 目标整文件删除，aicode-agents 只剪围栏段，codex 删除 config.toml 里的 model_instructions_file 行并移除复制过去的 md。必须先确认，传 confirm=true。",
+        "inputSchema": "schemas/remove.input.json",
+        "handler": "tools.remove"
+      }
+    ],
+    "workspaceTools": [
+      {
+        "id": "breach",
+        "title": { "zh-CN": "破甲台", "default": "Breach Console" },
+        "description": { "zh-CN": "破甲包目录、正文预览与一键注入", "default": "Pack catalog, body preview and one-click injection" },
+        "icon": "shield",
+        "category": "AI",
+        "pageFile": "pages/breach.html"
+      }
+    ],
+    "uiEntries": [
+      {
+        "id": "settings",
+        "title": { "zh-CN": "破甲台", "default": "Breach" },
+        "slot": "settings.ai",
+        "page": "pages/breach.html",
+        "icon": "shield"
+      },
+      {
+        "id": "drawer",
+        "title": { "zh-CN": "破甲台", "default": "Breach" },
+        "slot": "drawer.footer",
+        "page": "pages/breach.html",
+        "icon": "shield"
+      }
+    ]
+  }
+}

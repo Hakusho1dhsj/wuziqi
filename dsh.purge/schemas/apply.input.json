@@ -1,0 +1,18 @@
+{
+  "type": "object",
+  "properties": {
+    "target": {
+      "type": "string",
+      "enum": ["aicode", "dsh"],
+      "description": "注入目标：aicode 写入 AiCode 自定义提示词，dsh 写入 $DSH_HOME/prompt-inject.md；缺省 aicode"
+    },
+    "id": {
+      "type": "string",
+      "description": "提示词 id：persona 或 role:<plan|recon|assess|vuln-scan|exploit|internal>；缺省 persona"
+    },
+    "number": {
+      "type": "string",
+      "description": "仅 target=aicode 时有效，两位编号 00–99，决定片段在自定义提示词中的位置与是否覆盖内置片段；缺省 05"
+    }
+  }
+}

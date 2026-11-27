@@ -1,0 +1,14 @@
+{
+  "type": "object",
+  "properties": {
+    "op": {
+      "type": "string",
+      "enum": ["list", "install", "remove", "installAll"],
+      "description": "list 列出全部技能与安装状态；install/remove 单个技能；installAll 全部安装；缺省 list"
+    },
+    "id": {
+      "type": "string",
+      "description": "技能 id（不含 .md），op 为 install 或 remove 时必填"
+    }
+  }
+}

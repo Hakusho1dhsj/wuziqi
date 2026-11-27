@@ -1,0 +1,18 @@
+{
+  "type": "object",
+  "properties": {
+    "targets": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["aicode", "aicode-agents", "codex", "claude", "cursor", "workbuddy", "deepseek", "grok", "glm53"]
+      },
+      "description": "要清除的注入目标。默认 aicode。"
+    },
+    "confirm": {
+      "type": "boolean",
+      "description": "必须为 true 才真正清除。缺省时只返回将处理的文件清单。"
+    }
+  },
+  "additionalProperties": false
+}

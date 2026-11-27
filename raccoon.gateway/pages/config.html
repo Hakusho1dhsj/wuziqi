@@ -1,0 +1,816 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="/__aicode/theme.css">
+  <script src="/__aicode/aicode.js"></script>
+  <title>小浣熊网关</title>
+</head>
+<body>
+  <main class="page">
+    <header class="head">
+      <h2>小浣熊网关</h2>
+      <div class="head-actions">
+        <button id="btnRefresh" class="ghost">刷新</button>
+        <button id="btnRestart" class="primary">重启网关</button>
+      </div>
+    </header>
+
+    <section id="status" class="cards"></section>
+
+    <nav class="tabs">
+      <button data-tab="accounts" data-active="1">账号</button>
+      <button data-tab="login">登录</button>
+      <button data-tab="models">模型</button>
+      <button data-tab="logs">日志</button>
+    </nav>
+
+    <section data-panel="accounts">
+      <div class="block">
+        <div class="block-head">
+          <span class="block-title">账号池</span>
+          <div class="head-actions">
+            <button id="btnCheckinAll" class="primary small">全部签到</button>
+            <button id="btnCheckinAuto" class="ghost small">自动签到：开</button>
+          </div>
+        </div>
+        <div id="checkinStatus" class="muted"></div>
+        <div id="accountList" class="list"></div>
+      </div>
+      <div class="block">
+        <div class="block-head">
+          <span class="block-title">导入 JSON</span>
+          <span class="muted">支持账号数组或 {"accounts":[…]}，字段 accessToken / refreshToken</span>
+        </div>
+        <textarea id="importText" rows="6" spellcheck="false" placeholder='[{"accessToken":"eyJ...","refreshToken":"eyJ...","name":"我的账号"}]'></textarea>
+        <div class="row-actions">
+          <button id="btnImportMerge" class="primary">合并导入</button>
+          <button id="btnImportReplace" class="danger">替换全部</button>
+          <span id="importStatus" class="status-text"></span>
+        </div>
+      </div>
+    </section>
+
+    <section data-panel="login" hidden>
+      <div class="subtabs">
+        <button data-sub="qr" data-active="1">微信扫码</button>
+        <button data-sub="sms">短信登录</button>
+      </div>
+
+      <div data-subpanel="qr">
+        <div class="block">
+          <div class="block-head">
+            <span class="block-title">扫码登录</span>
+            <span class="muted">用微信扫描二维码，在手机上确认后自动入池</span>
+          </div>
+          <div id="qrBox" class="qr-box"><span class="muted">点击下方按钮生成二维码</span></div>
+          <div class="row-actions">
+            <button id="btnQrStart" class="primary">生成二维码</button>
+            <span id="qrStatus" class="status-text"></span>
+          </div>
+        </div>
+      </div>
+
+      <div data-subpanel="sms" hidden>
+        <div class="block">
+          <div class="block-head">
+            <span class="block-title">短信登录</span>
+            <span class="muted">手机号在本地加密后提交，滑块由阿里云提供</span>
+          </div>
+          <label class="field">
+            <span>手机号</span>
+            <input id="smsPhone" type="tel" inputmode="numeric" maxlength="11" placeholder="11 位手机号" autocomplete="tel">
+          </label>
+          <div id="captcha-element"></div>
+          <div class="row-actions">
+            <button id="btnSendCode" class="primary">获取验证码</button>
+            <span id="smsSendStatus" class="status-text"></span>
+          </div>
+          <label class="field">
+            <span>验证码</span>
+            <input id="smsCode" type="text" inputmode="numeric" maxlength="8" placeholder="短信中的数字验证码" autocomplete="one-time-code">
+          </label>
+          <div class="row-actions">
+            <button id="btnSmsLogin" class="primary">登录并入池</button>
+            <span id="smsLoginStatus" class="status-text"></span>
+          </div>
+          <details class="advanced">
+            <summary>滑块加载失败时手动填写 captcha_param</summary>
+            <label class="field">
+              <span>captcha_param</span>
+              <input id="smsCaptchaManual" type="text" spellcheck="false" placeholder="从浏览器网络面板复制 captcha_param 的值">
+            </label>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <section data-panel="models" hidden>
+      <div class="block">
+        <div class="block-head">
+          <span class="block-title">模型目录</span>
+          <button id="btnModelsRefresh" class="ghost small">重新拉取</button>
+        </div>
+        <div id="modelList" class="list"></div>
+      </div>
+    </section>
+
+    <section data-panel="logs" hidden>
+      <div class="block">
+        <div class="block-head">
+          <span class="block-title">运行日志</span>
+          <span class="muted">最近 200 行</span>
+        </div>
+        <pre id="logBox" class="logs"></pre>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    let statusCache = null;
+    let directMode = false;
+
+    const api = async (path, method, body) => {
+      if (!directMode) {
+        let result;
+        try {
+          result = await aicode.invoke('ui.api', { path, method: method || 'GET', body });
+        } catch {
+          directMode = true;
+        }
+        if (!directMode) {
+          if (!result || result.ok === false) {
+            throw new Error((result && result.message) || '请求失败');
+          }
+          return result;
+        }
+      }
+      return apiDirect(path, method, body);
+    };
+
+    const apiDirect = async (path, method, body) => {
+      const info = statusCache || (statusCache = await aicode.invoke('ui.status', {}));
+      if (!info || !info.adminKey) throw new Error('网关尚未就绪，请点「重启」后重试');
+      const init = { method: method || 'GET', headers: { 'x-admin-key': info.adminKey } };
+      if (body !== undefined) {
+        init.headers['content-type'] = 'application/json';
+        init.body = JSON.stringify(body);
+      }
+      const response = await fetch('http://127.0.0.1:' + info.actualPort + path, init);
+      const text = await response.text();
+      try {
+        return JSON.parse(text);
+      } catch {
+        throw new Error(text.slice(0, 200) || 'HTTP ' + response.status);
+      }
+    };
+
+    const toast = (text) => {
+      try { aicode.toast(text); } catch { /* 宿主未提供 toast */ }
+    };
+
+    const el = (tag, cls, text) => {
+      const node = document.createElement(tag);
+      if (cls) node.className = cls;
+      if (text !== undefined) node.textContent = text;
+      return node;
+    };
+
+    const fmtTime = (ms) => {
+      if (!ms || ms <= 0) return '未知';
+      const d = new Date(ms);
+      const pad = (n) => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    };
+
+    const relTime = (ms) => {
+      if (!ms || ms <= 0) return '未知';
+      const diff = ms - Date.now();
+      if (diff <= 0) return '已过期';
+      const mins = Math.round(diff / 60000);
+      if (mins < 60) return `${mins} 分钟后`;
+      const hours = Math.round(mins / 60);
+      if (hours < 48) return `${hours} 小时后`;
+      return `${Math.round(hours / 24)} 天后`;
+    };
+
+    // ---------- 状态 ----------
+    async function loadStatus() {
+      const box = document.getElementById('status');
+      try {
+        const data = await aicode.invoke('ui.status', {});
+        statusCache = data;
+        box.innerHTML = '';
+        box.appendChild(card('运行状态', data.responsive ? '在线' : (data.running ? '启动中' : '未运行'), data.responsive ? 'ok' : 'bad'));
+        box.appendChild(cardCopy('Base URL', data.baseUrl, 'baseUrl'));
+        box.appendChild(cardCopy('API Key', data.apiKey || '—', 'apiKey'));
+        box.appendChild(card('账号数', String(data.accounts || 0)));
+        box.appendChild(card('端口', String(data.actualPort || '—')));
+        if (data.checkin) {
+          const parts = [`${data.checkin.checkedToday}/${data.checkin.enabledAccounts}`];
+          if (!data.checkin.auto) parts.push('自动签到关闭');
+          box.appendChild(card('今日签到', parts.join(' · ')));
+        }
+        if (data.note) {
+          const note = el('p', 'note', data.note);
+          box.appendChild(note);
+        }
+        const meta = el('p', 'note', `运行模式 ${data.mode || '未知'} · Node ${data.node || '未知'} · 数据目录 ${data.dataDir || '未知'}`);
+        box.appendChild(meta);
+        if (data.logs && data.logs.length > 0) {
+          const diag = el('pre', 'logs diag', data.logs.join('\n'));
+          box.appendChild(diag);
+        }
+      } catch (error) {
+        box.innerHTML = '';
+        box.appendChild(card('运行状态', '读取失败：' + error.message, 'bad'));
+      }
+    }
+
+    function card(label, value, tone) {
+      const wrap = el('div', 'card');
+      wrap.appendChild(el('div', 'card-label', label));
+      const val = el('div', 'card-value' + (tone ? ' ' + tone : ''), value);
+      wrap.appendChild(val);
+      return wrap;
+    }
+
+    function cardCopy(label, value, key) {
+      const wrap = el('div', 'card');
+      wrap.appendChild(el('div', 'card-label', label));
+      const row = el('div', 'card-value mono');
+      row.textContent = value === null || value === undefined ? '—' : String(value);
+      const btn = el('button', 'copy small', '复制');
+      btn.addEventListener('click', async () => {
+        try {
+          await aicode.clipboard.write(String(value));
+          toast('已复制 ' + label);
+        } catch {
+          toast('复制失败');
+        }
+      });
+      row.appendChild(btn);
+      wrap.appendChild(row);
+      wrap.dataset.key = key;
+      return wrap;
+    }
+
+    // ---------- 账号 ----------
+    async function loadAccounts() {
+      const list = document.getElementById('accountList');
+      const statusLine = document.getElementById('checkinStatus');
+      const autoBtn = document.getElementById('btnCheckinAuto');
+      let data;
+      try {
+        data = await api('/admin/api/checkin');
+      } catch (error) {
+        list.innerHTML = '';
+        list.appendChild(el('div', 'empty bad', '读取账号失败：' + error.message));
+        return;
+      }
+      const accounts = data.accounts || [];
+      const checked = accounts.filter((account) => account.enabled !== false && account.checkedInToday).length;
+      const enabled = accounts.filter((account) => account.enabled !== false).length;
+      autoBtn.textContent = '自动签到 ' + (data.auto ? '开' : '关');
+      autoBtn.dataset.auto = data.auto ? '1' : '0';
+      const bits = [`共 ${accounts.length} 个账号`, `今日已签到 ${checked}/${enabled}（启用账号）`];
+      if (data.lastRun && data.lastRun.at) bits.push(`上次运行 ${fmtTime(data.lastRun.at)}`);
+      statusLine.textContent = bits.join(' · ');
+      list.innerHTML = '';
+      if (accounts.length === 0) {
+        list.appendChild(el('div', 'empty', '还没有账号，可在下方导入 JSON 或到「登录」页扫码 / 短信登录。'));
+        return;
+      }
+      for (const account of accounts) {
+        list.appendChild(accountRow(account));
+      }
+    }
+
+    function accountRow(account) {
+      const row = el('div', 'item' + (account.enabled ? '' : ' disabled'));
+
+      const main = el('div', 'item-main');
+      const title = el('div', 'item-title');
+      title.appendChild(el('span', 'name', account.name || account.id));
+      if (!account.enabled) title.appendChild(el('span', 'chip muted-chip', '已停用'));
+      else title.appendChild(el('span', 'chip ' + (account.checkedInToday ? 'ok' : 'warn'), account.checkedInToday ? '今日已签' : '未签到'));
+      if (account.expired) title.appendChild(el('span', 'chip bad', '令牌过期'));
+      if (account.cooldownUntil > Date.now()) title.appendChild(el('span', 'chip warn', '冷却中'));
+      if (!account.refreshable) title.appendChild(el('span', 'chip warn', '无刷新令牌'));
+      main.appendChild(title);
+
+      const meta = el('div', 'item-meta');
+      const parts = [];
+      if (account.phone) parts.push(account.phone);
+      if (account.orgCode) parts.push('org ' + account.orgCode);
+      parts.push(`令牌 ${relTime(account.expiresAt)}`);
+      parts.push(account.tokenPreview || '无令牌');
+      meta.textContent = parts.join(' · ');
+      main.appendChild(meta);
+
+      if (account.lastError) {
+        main.appendChild(el('div', 'item-error', account.lastError));
+      }
+
+      const actions = el('div', 'item-actions');
+      if (account.enabled) {
+        const btnCheckin = el('button', 'ghost small', account.checkedInToday ? '重签' : '签到');
+        btnCheckin.addEventListener('click', () => runAccountAction(btnCheckin, '/admin/api/checkin', account.id, (result) => {
+          const first = (result.results || [])[0] || {};
+          toast(first.ok ? (first.message || '签到完成') : (first.message || '签到失败'));
+        }));
+        actions.appendChild(btnCheckin);
+      }
+      const btnTest = el('button', 'ghost small', '测试');
+      btnTest.addEventListener('click', () => runAccountAction(btnTest, '/admin/api/accounts/test', account.id, (result) => {
+        const info = result.info || {};
+        const balance = result.balance || {};
+        const bits = [];
+        if (info.name) bits.push(info.name);
+        if (typeof balance.available_points === 'number') bits.push(`可用积分 ${balance.available_points}`);
+        toast(bits.length > 0 ? bits.join(' · ') : '账号可用');
+      }));
+      actions.appendChild(btnTest);
+
+      if (account.refreshable) {
+        const btnRefresh = el('button', 'ghost small', '续期');
+        btnRefresh.addEventListener('click', () => runAccountAction(btnRefresh, '/admin/api/accounts/refresh', account.id, (result) => {
+          const first = (result.results || [])[0] || {};
+          toast(first.ok ? '续期成功' : (first.message || '续期失败'));
+        }));
+        actions.appendChild(btnRefresh);
+      }
+
+      const btnToggle = el('button', 'ghost small', account.enabled ? '停用' : '启用');
+      btnToggle.addEventListener('click', async () => {
+        btnToggle.disabled = true;
+        try {
+          await api('/admin/api/accounts/enable', 'POST', { id: account.id, enabled: !account.enabled });
+          await loadAccounts();
+        } catch (error) {
+          toast('操作失败：' + error.message);
+        } finally {
+          btnToggle.disabled = false;
+        }
+      });
+      actions.appendChild(btnToggle);
+
+      const btnDelete = el('button', 'danger small', '删除');
+      btnDelete.addEventListener('click', async () => {
+        if (!window.confirm(`确定删除账号「${account.name || account.id}」？`)) return;
+        btnDelete.disabled = true;
+        try {
+          await api('/admin/api/accounts/delete', 'POST', { id: account.id });
+          await loadAccounts();
+          await loadStatus();
+        } catch (error) {
+          toast('删除失败：' + error.message);
+        } finally {
+          btnDelete.disabled = false;
+        }
+      });
+      actions.appendChild(btnDelete);
+
+      row.appendChild(main);
+      row.appendChild(actions);
+      return row;
+    }
+
+    async function runAccountAction(button, path, id, onOk) {
+      button.disabled = true;
+      const original = button.textContent;
+      button.textContent = '…';
+      try {
+        const result = await api(path, 'POST', { id });
+        if (result.ok === false) throw new Error(result.message || '失败');
+        onOk(result);
+        await loadAccounts();
+      } catch (error) {
+        toast('失败：' + error.message);
+      } finally {
+        button.disabled = false;
+        button.textContent = original;
+      }
+    }
+
+    // ---------- 导入 ----------
+    async function doImport(mode) {
+      const text = document.getElementById('importText').value.trim();
+      const status = document.getElementById('importStatus');
+      if (!text) {
+        status.textContent = '请先粘贴 JSON';
+        status.className = 'status-text bad';
+        return;
+      }
+      if (mode === 'replace' && !window.confirm('替换全部会清空现有账号，确定继续？')) return;
+      status.textContent = '导入中…';
+      status.className = 'status-text';
+      try {
+        const result = await api('/admin/api/accounts/import', 'POST', { payload: text, mode });
+        status.textContent = `新增 ${result.added}，更新 ${result.updated}，总计 ${result.total}`;
+        status.className = 'status-text ok';
+        document.getElementById('importText').value = '';
+        await loadAccounts();
+        await loadStatus();
+      } catch (error) {
+        status.textContent = error.message;
+        status.className = 'status-text bad';
+      }
+    }
+
+    // ---------- 扫码 ----------
+    let qrTimer = null;
+    let qrCode = null;
+
+    function stopQrPolling() {
+      if (qrTimer) {
+        clearInterval(qrTimer);
+        qrTimer = null;
+      }
+    }
+
+    async function startQr() {
+      const box = document.getElementById('qrBox');
+      const status = document.getElementById('qrStatus');
+      stopQrPolling();
+      box.innerHTML = '<span class="muted">生成中…</span>';
+      status.textContent = '';
+      status.className = 'status-text';
+      let data;
+      try {
+        data = await api('/admin/api/login/start', 'POST', {});
+      } catch (error) {
+        box.innerHTML = '<span class="muted">生成失败</span>';
+        status.textContent = error.message;
+        status.className = 'status-text bad';
+        return;
+      }
+      qrCode = data.code;
+      box.innerHTML = data.qrSvg;
+      status.textContent = '等待扫码…';
+      qrTimer = setInterval(async () => {
+        if (!qrCode) return;
+        try {
+          const result = await api(`/admin/api/login/poll?code=${encodeURIComponent(qrCode)}`);
+          if (result.status === 'success') {
+            stopQrPolling();
+            qrCode = null;
+            status.textContent = '登录成功，账号已入池';
+            status.className = 'status-text ok';
+            box.innerHTML = '<span class="muted">登录成功</span>';
+            await loadAccounts();
+            await loadStatus();
+            return;
+          }
+          if (result.status === 'canceled' || result.status === 'unknown') {
+            stopQrPolling();
+            qrCode = null;
+            status.textContent = result.message || '二维码已失效，请重新生成';
+            status.className = 'status-text bad';
+            return;
+          }
+          status.textContent = '等待扫码…';
+        } catch {
+          /* 单次轮询失败不终止 */
+        }
+      }, 2000);
+    }
+
+    // ---------- 短信 ----------
+    let captchaReady = false;
+
+    function loadCaptchaScript() {
+      return new Promise((resolve) => {
+        if (typeof window.initAliyunCaptcha === 'function') {
+          resolve(true);
+          return;
+        }
+        const script = document.createElement('script');
+        script.src = 'https://o.alicdn.com/captcha-frontend/aliyunCaptcha/AliyunCaptcha.js';
+        script.onload = () => resolve(true);
+        script.onerror = () => resolve(false);
+        document.head.appendChild(script);
+      });
+    }
+
+    async function initCaptcha(sceneId, prefix) {
+      if (captchaReady) return true;
+      const loaded = await loadCaptchaScript();
+      if (!loaded || typeof window.initAliyunCaptcha !== 'function') return false;
+      window.initAliyunCaptcha({
+        SceneId: sceneId,
+        prefix: prefix,
+        mode: 'popup',
+        element: '#captcha-element',
+        button: '#btnSendCode',
+        captchaVerifyCallback: (captchaParam) => {
+          submitSmsSend(captchaParam);
+          return { captchaResult: true, bizResult: true };
+        },
+        onBizResultCallback: () => null,
+        getInstance: () => null,
+        slideStyle: { width: 320, height: 40 },
+        language: 'cn',
+      });
+      captchaReady = true;
+      return true;
+    }
+
+    async function submitSmsSend(captchaParam) {
+      const phone = document.getElementById('smsPhone').value.trim();
+      const status = document.getElementById('smsSendStatus');
+      if (!/^1[3-9]\d{9}$/.test(phone)) {
+        status.textContent = '请输入有效的 11 位手机号';
+        status.className = 'status-text bad';
+        return;
+      }
+      status.textContent = '发送中…';
+      status.className = 'status-text';
+      try {
+        await api('/admin/api/login/sms/send', 'POST', { phone, captchaParam: captchaParam || '' });
+        status.textContent = '验证码已发送，请查收短信';
+        status.className = 'status-text ok';
+      } catch (error) {
+        status.textContent = error.message;
+        status.className = 'status-text bad';
+      }
+    }
+
+    async function smsLogin() {
+      const phone = document.getElementById('smsPhone').value.trim();
+      const code = document.getElementById('smsCode').value.trim();
+      const status = document.getElementById('smsLoginStatus');
+      if (!/^1[3-9]\d{9}$/.test(phone)) {
+        status.textContent = '请输入有效的 11 位手机号';
+        status.className = 'status-text bad';
+        return;
+      }
+      if (!/^\d{4,8}$/.test(code)) {
+        status.textContent = '请输入短信验证码';
+        status.className = 'status-text bad';
+        return;
+      }
+      const btn = document.getElementById('btnSmsLogin');
+      btn.disabled = true;
+      status.textContent = '登录中…';
+      status.className = 'status-text';
+      try {
+        await api('/admin/api/login/sms/verify', 'POST', { phone, code });
+        status.textContent = '登录成功，账号已入池';
+        status.className = 'status-text ok';
+        document.getElementById('smsCode').value = '';
+        await loadAccounts();
+        await loadStatus();
+      } catch (error) {
+        status.textContent = error.message;
+        status.className = 'status-text bad';
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    // ---------- 模型 ----------
+    async function loadModels(force) {
+      const list = document.getElementById('modelList');
+      list.innerHTML = '<div class="empty">加载中…</div>';
+      try {
+        const data = await api('/admin/api/models' + (force ? '?refresh=1' : ''));
+        list.innerHTML = '';
+        if (!data.models || data.models.length === 0) {
+          list.appendChild(el('div', 'empty', '没有拿到模型列表'));
+          return;
+        }
+        for (const model of data.models) {
+          const row = el('div', 'item');
+          const main = el('div', 'item-main');
+          const title = el('div', 'item-title');
+          title.appendChild(el('span', 'name mono', model.id));
+          if (model.multiplier === 0) title.appendChild(el('span', 'chip ok', '免费'));
+          else if (typeof model.multiplier === 'number') title.appendChild(el('span', 'chip', 'x' + model.multiplier));
+          if (model.supportsImage) title.appendChild(el('span', 'chip', '视觉'));
+          main.appendChild(title);
+          const meta = el('div', 'item-meta');
+          meta.textContent = `${model.description} · 上下文 ${model.contextWindow} · 输出上限 ${model.maxTokens}`;
+          main.appendChild(meta);
+          row.appendChild(main);
+          list.appendChild(row);
+        }
+      } catch (error) {
+        list.innerHTML = '';
+        list.appendChild(el('div', 'empty bad', '读取失败：' + error.message));
+      }
+    }
+
+    // ---------- 日志 ----------
+    async function loadLogs() {
+      const box = document.getElementById('logBox');
+      try {
+        const data = await api('/admin/api/logs');
+        box.textContent = (data.lines || []).join('\n') || '暂无日志';
+        box.scrollTop = box.scrollHeight;
+      } catch (error) {
+        box.textContent = '读取失败：' + error.message;
+      }
+    }
+
+    // ---------- 交互绑定 ----------
+    document.querySelectorAll('.tabs button').forEach((button) => {
+      button.addEventListener('click', () => {
+        document.querySelectorAll('.tabs button').forEach((other) => other.removeAttribute('data-active'));
+        button.setAttribute('data-active', '1');
+        const target = button.dataset.tab;
+        document.querySelectorAll('[data-panel]').forEach((panel) => {
+          panel.hidden = panel.dataset.panel !== target;
+        });
+        if (target === 'accounts') loadAccounts();
+        if (target === 'models') loadModels(false);
+        if (target === 'logs') loadLogs();
+      });
+    });
+
+    document.querySelectorAll('.subtabs button').forEach((button) => {
+      button.addEventListener('click', () => {
+        document.querySelectorAll('.subtabs button').forEach((other) => other.removeAttribute('data-active'));
+        button.setAttribute('data-active', '1');
+        const target = button.dataset.sub;
+        document.querySelectorAll('[data-subpanel]').forEach((panel) => {
+          panel.hidden = panel.dataset.subpanel !== target;
+        });
+      });
+    });
+
+    document.getElementById('btnRefresh').addEventListener('click', async () => {
+      await loadStatus();
+      await loadAccounts();
+    });
+
+    document.getElementById('btnRestart').addEventListener('click', async () => {
+      const button = document.getElementById('btnRestart');
+      button.disabled = true;
+      toast('正在重启网关…');
+      try {
+        const result = await aicode.invoke('ui.restart', {});
+        toast(result && result.ok ? '网关已重启' : '重启后仍未就绪');
+      } catch (error) {
+        toast('重启失败：' + error.message);
+      } finally {
+        button.disabled = false;
+        statusCache = null;
+        await loadStatus();
+        await loadAccounts();
+      }
+    });
+
+    document.getElementById('btnCheckinAll').addEventListener('click', async () => {
+      const button = document.getElementById('btnCheckinAll');
+      const original = button.textContent;
+      button.disabled = true;
+      button.textContent = '签到中…';
+      try {
+        const result = await api('/admin/api/checkin', 'POST', {});
+        if (result.ok === false) throw new Error(result.message || '签到失败');
+        const okCount = (result.results || []).filter((item) => item.ok).length;
+        toast(result.checked > 0 ? `签到完成：${okCount}/${result.checked} 成功` : (result.message || '今天已全部签到'));
+        await loadAccounts();
+        await loadStatus();
+      } catch (error) {
+        toast('签到失败：' + error.message);
+      } finally {
+        button.disabled = false;
+        button.textContent = original;
+      }
+    });
+
+    document.getElementById('btnCheckinAuto').addEventListener('click', async () => {
+      const button = document.getElementById('btnCheckinAuto');
+      const next = button.dataset.auto !== '1';
+      button.disabled = true;
+      try {
+        await api('/admin/api/checkin/auto', 'POST', { enabled: next });
+        await loadAccounts();
+        await loadStatus();
+      } catch (error) {
+        toast('设置失败：' + error.message);
+      } finally {
+        button.disabled = false;
+      }
+    });
+
+    document.getElementById('btnImportMerge').addEventListener('click', () => doImport('merge'));    document.getElementById('btnImportReplace').addEventListener('click', () => doImport('replace'));
+
+    document.getElementById('btnQrStart').addEventListener('click', startQr);
+
+    document.getElementById('btnSendCode').addEventListener('click', async () => {
+      const manual = document.getElementById('smsCaptchaManual').value.trim();
+      if (manual) {
+        await submitSmsSend(manual);
+        return;
+      }
+      let captcha;
+      try {
+        captcha = await api('/admin/api/status');
+      } catch (error) {
+        document.getElementById('smsSendStatus').textContent = '网关未就绪：' + error.message;
+        return;
+      }
+      const conf = captcha.captcha || {};
+      const ok = await initCaptcha(conf.sceneId, conf.prefix);
+      if (!ok) {
+        document.getElementById('smsSendStatus').textContent = '滑块脚本加载失败，请在下方手动填写 captcha_param';
+        document.getElementById('smsSendStatus').className = 'status-text bad';
+      }
+    });
+
+    document.getElementById('btnSmsLogin').addEventListener('click', smsLogin);
+    document.getElementById('btnModelsRefresh').addEventListener('click', () => loadModels(true));
+
+    window.addEventListener('beforeunload', stopQrPolling);
+
+    (async () => {
+      await loadStatus();
+      await loadAccounts();
+    })();
+  </script>
+
+  <style>
+    :root {
+      --rc-text: #e6edf3;
+      --rc-dim: #d3dbe4;
+      --rc-line: rgba(160, 175, 190, 0.45);
+      --rc-surface: rgba(120, 140, 160, 0.14);
+      --rc-surface-2: rgba(120, 140, 160, 0.22);
+    }
+    @media (prefers-color-scheme: light) {
+      :root {
+        --rc-text: #1f2328;
+        --rc-dim: #59636e;
+        --rc-line: rgba(31, 35, 40, 0.28);
+        --rc-surface: rgba(31, 35, 40, 0.06);
+        --rc-surface-2: rgba(31, 35, 40, 0.12);
+      }
+      .logs { background: rgba(31, 35, 40, 0.06); }
+      .diag { color: #cf222e; }
+    }
+    .page { box-sizing: border-box; width: 100%; max-width: 900px; margin: 0 auto; padding: 16px; color: var(--rc-text); font-family: var(--font, system-ui, sans-serif); }
+    .head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+    h2 { margin: 0; font-size: 18px; }
+    .head-actions { display: flex; gap: 8px; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+    .card { padding: 10px 12px; border-radius: 10px; background: var(--rc-surface); border: 1px solid var(--rc-line); }
+    .card-label { font-size: 12px; color: var(--rc-dim); margin-bottom: 4px; }
+    .card-value { font-size: 13px; display: flex; align-items: center; gap: 8px; word-break: break-all; }
+    .card-value.ok { color: #3fb950; }
+    .card-value.bad { color: #ff8f88; }
+    .mono { font-family: ui-monospace, monospace; }
+    .note { grid-column: 1 / -1; margin: 4px 0 0; font-size: 12px; color: var(--rc-dim); line-height: 1.6; }
+    .tabs, .subtabs { display: flex; gap: 6px; margin: 16px 0 12px; }
+    .subtabs { margin: 0 0 12px; }
+    .tabs button, .subtabs button { flex: 1; padding: 9px; font-size: 13px; border-radius: 8px; border: 1px solid var(--rc-line); background: var(--rc-surface); color: var(--rc-text); cursor: pointer; }
+    .tabs button[data-active="1"], .subtabs button[data-active="1"] { background: var(--rc-surface-2); border-color: var(--rc-text); font-weight: 600; }
+    .block { padding: 12px; border-radius: 10px; background: var(--rc-surface); border: 1px solid var(--rc-line); margin-bottom: 12px; }
+    .block-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+    .block-title { font-size: 13px; font-weight: 600; }
+    .muted { font-size: 12px; color: var(--rc-dim); }
+    .list { display: flex; flex-direction: column; gap: 8px; }
+    .item { display: flex; align-items: flex-start; gap: 10px; padding: 10px; border-radius: 8px; background: var(--rc-surface-2); flex-wrap: wrap; }
+    .item.disabled { opacity: 0.6; }
+    .item-main { flex: 1; min-width: 200px; }
+    .item-title { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 3px; }
+    .name { font-size: 13px; font-weight: 600; }
+    .item-meta { font-size: 11px; color: var(--rc-dim); word-break: break-all; line-height: 1.5; }
+    .item-error { font-size: 11px; color: #ff9c96; margin-top: 4px; word-break: break-all; }
+    .item-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+    .chip { font-size: 11px; padding: 1px 7px; border-radius: 999px; background: var(--rc-surface-2); }
+    .chip.ok { background: rgba(46, 160, 67, 0.22); color: #3fb950; }
+    .chip.bad { background: rgba(248, 81, 73, 0.22); color: #f85149; }
+    .chip.warn { background: rgba(210, 153, 34, 0.24); color: #e3b341; }
+    .muted-chip { color: var(--rc-dim); }
+    .empty { font-size: 12px; color: var(--rc-dim); padding: 8px 2px; line-height: 1.6; }
+    .empty.bad { color: #ff9c96; }
+    textarea, input { width: 100%; box-sizing: border-box; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--rc-line); background: rgba(0, 0, 0, 0.22); color: var(--rc-text); font-size: 13px; font-family: ui-monospace, monospace; }
+    textarea::placeholder { color: var(--rc-dim); opacity: 1; }
+    textarea { resize: vertical; }
+    .field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+    .field > span { font-size: 12px; color: var(--rc-dim); }
+    .row-actions { display: flex; align-items: center; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+    button { padding: 7px 14px; border-radius: 8px; border: 1px solid var(--rc-line); background: var(--rc-surface); color: var(--rc-text); cursor: pointer; font-size: 13px; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    button.small { padding: 4px 9px; font-size: 12px; }
+    button.primary { background: #1f6feb; border-color: #1f6feb; color: #ffffff; }
+    button.danger { background: #da3633; border-color: #da3633; color: #ffffff; }
+    button.ghost { background: var(--rc-surface); }
+    .copy { padding: 2px 8px; font-size: 11px; margin-left: auto; }
+    .status-text { font-size: 12px; color: var(--rc-text); }
+    .status-text.ok { color: #3fb950; }
+    .status-text.bad { color: #f85149; }
+    .qr-box { display: flex; align-items: center; justify-content: center; min-height: 232px; padding: 8px; border-radius: 8px; background: #fff; }
+    .qr-box svg { width: 220px; height: 220px; }
+    .advanced { margin-top: 12px; font-size: 12px; }
+    .advanced summary { cursor: pointer; color: var(--rc-dim); }
+    .advanced .field { margin-top: 8px; }
+    .logs { margin: 0; padding: 10px; max-height: 420px; overflow: auto; border-radius: 8px; background: rgba(0, 0, 0, 0.3); font-family: ui-monospace, monospace; font-size: 11px; line-height: 1.55; white-space: pre-wrap; word-break: break-all; }
+    .diag { grid-column: 1 / -1; max-height: 150px; color: #ffcac7; background: rgba(248, 81, 73, 0.2); border: 1px solid rgba(248, 81, 73, 0.6); }
+  </style>
+</body>
+</html>
