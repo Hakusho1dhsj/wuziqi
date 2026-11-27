@@ -1,0 +1,55 @@
+{
+  "manifestVersion": 1,
+  "id": "lcs.mcp-market",
+  "name": {
+    "default": "MCP Market",
+    "zh-CN": "MCP 市场"
+  },
+  "version": "1.0.3",
+  "publisher": "lcs",
+  "repository": "https://github.com/Hakusho1dhsj/wuziqi",
+  "description": {
+    "default": "Browse, search and add MCP servers from GitHub and ModelScope in one lightweight page.",
+    "zh-CN": "轻量浏览、搜索并添加 MCP 服务器，数据来源只有 GitHub 与魔搭社区。支持查看详情、一键写入 MCP 配置、自由添加自定义服务器。"
+  },
+  "license": "MIT",
+  "icon": "icons/icon.png",
+  "engines": {
+    "pluginApi": "^1.0.0"
+  },
+  "contributes": {
+    "configPage": "pages/market.html",
+    "uiEntries": [
+      {
+        "id": "market",
+        "title": {
+          "default": "MCP Market",
+          "zh-CN": "MCP 市场"
+        },
+        "slot": "drawer.footer",
+        "page": "pages/market.html",
+        "icon": "package"
+      },
+      {
+        "id": "market-ai",
+        "title": {
+          "default": "MCP Market",
+          "zh-CN": "MCP 市场"
+        },
+        "slot": "settings.ai",
+        "page": "pages/market.html",
+        "icon": "package"
+      },
+      {
+        "id": "market-chat",
+        "title": {
+          "default": "MCP Market",
+          "zh-CN": "获取 MCP 服务器"
+        },
+        "slot": "chat.header.menu",
+        "page": "pages/market.html",
+        "icon": "package"
+      }
+    ]
+  }
+}
