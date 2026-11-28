@@ -1,0 +1,104 @@
+{
+  "$schema": "https://raw.githubusercontent.com/jieapi/AiCode/main/plugins/schema/plugin.schema.json",
+  "manifestVersion": 1,
+  "id": "sensenova.gateway",
+  "name": {
+    "default": "SenseNova Image",
+    "zh-CN": "商汤生图"
+  },
+  "version": "1.4.0",
+  "publisher": "sensenova",
+  "repository": "https://github.com/Hakusho1dhsj/wuziqi",
+  "description": {
+    "default": "An image-generation-first local gateway for SenseNova (SenseTime): text-to-image and image editing on the U series. Every image is generated straight to disk and previewed in the chat first — you decide whether to upload or keep it. Multi-key pool with automatic rotation.",
+    "zh-CN": "专为 AI 生图做的商汤（SenseNova）本地网关：文生图、参考图改图，U 系列模型开箱即用。图片生成后立刻落盘并在聊天里先给你预览，你确认满意再决定上不上传、要不要保存，不满意就重生成；多 API Key 池自动轮换，掉一个不影响出图。"
+  },
+  "license": "MIT",
+  "icon": "icons/icon.png",
+  "engines": {
+    "pluginApi": "^1.0.0"
+  },
+  "runtime": {
+    "type": "javascript",
+    "entry": "dist/main.js",
+    "resident": true
+  },
+  "contributes": {
+    "configPage": "dist/pages/config.html",
+    "providers": [
+      {
+        "id": "gateway",
+        "name": {
+          "default": "SenseNova Image",
+          "zh-CN": "商汤生图"
+        },
+        "description": {
+          "default": "Local OpenAI-compatible image generation endpoint on 127.0.0.1:18918, backed by SenseNova.",
+          "zh-CN": "本机 127.0.0.1:18918 的生图入口，后端是商汤（SenseNova），对话与文生图共用同一个 OpenAI 兼容地址。"
+        },
+        "format": "openai",
+        "baseUrl": "http://127.0.0.1:18918/v1"
+      }
+    ],
+    "hooks": [
+      {
+        "id": "boot",
+        "event": "app.started",
+        "handler": "hooks.boot"
+      }
+    ],
+    "tools": [
+      {
+        "id": "status",
+        "title": {
+          "default": "SenseNova image gateway status",
+          "zh-CN": "生图网关状态"
+        },
+        "description": {
+          "default": "Show the SenseNova image gateway run state, base URL, API key state, default image models and recent logs.",
+          "zh-CN": "查看商汤生图网关的运行状态、地址、Key 状态、默认生图模型与最近日志。"
+        },
+        "inputSchema": "schemas/status.input.json",
+        "handler": "tools.status"
+      },
+      {
+        "id": "restart",
+        "title": {
+          "default": "Restart SenseNova image gateway",
+          "zh-CN": "重启生图网关"
+        },
+        "description": {
+          "default": "Restart the local SenseNova image gateway process.",
+          "zh-CN": "重启本地商汤生图网关进程。"
+        },
+        "inputSchema": "schemas/restart.input.json",
+        "handler": "tools.restart"
+      },
+      {
+        "id": "image",
+        "title": {
+          "default": "Generate image",
+          "zh-CN": "生成图片"
+        },
+        "description": {
+          "default": "Generate an image with SenseNova U series (text-to-image) and save it as a PNG. After this tool returns, immediately call sendFile with the returned path so the image is previewed in the chat, then let the user decide whether to upload it; never reply with a link or a bare path.",
+          "zh-CN": "用商汤 U 系列模型文生图并保存为 PNG。重要：本工具返回后必须立即调用 sendFile，把返回的 path 作为图片发给用户预览，让用户看过之后再决定上不上传；不要只回复链接或路径。"
+        },
+        "inputSchema": "schemas/image.input.json",
+        "handler": "tools.image"
+      }
+    ],
+    "uiEntries": [
+      {
+        "id": "panel",
+        "title": {
+          "default": "SenseNova image panel",
+          "zh-CN": "商汤生图面板"
+        },
+        "slot": "drawer.footer",
+        "page": "dist/pages/config.html",
+        "icon": "cloud"
+      }
+    ]
+  }
+}

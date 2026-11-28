@@ -1,0 +1,374 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="/__aicode/theme.css">
+  <script src="/__aicode/aicode.js"></script>
+  <title>商汤生图</title>
+  <style>
+    :root { color-scheme: light dark; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--aicode-bg, var(--bg, transparent));
+      color: var(--aicode-fg, var(--fg, inherit));
+      font: 14px/1.6 -apple-system, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    }
+    .page { padding: 12px 14px 32px; max-width: 760px; margin: 0 auto; }
+    .head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+    .head h2 { margin: 0; font-size: 17px; }
+    .head-actions { display: flex; gap: 8px; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; margin-bottom: 14px; }
+    .card {
+      border: 1px solid var(--aicode-border, rgba(128,128,128,.28));
+      border-radius: 10px; padding: 9px 11px;
+      background: var(--aicode-surface, rgba(128,128,128,.06));
+    }
+    .card .k { font-size: 11px; opacity: .62; }
+    .card .v { font-size: 14px; word-break: break-all; margin-top: 2px; }
+    .block {
+      border: 1px solid var(--aicode-border, rgba(128,128,128,.28));
+      border-radius: 12px; padding: 12px; margin-bottom: 12px;
+    }
+    .block-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+    .block-title { font-size: 13px; font-weight: 600; }
+    label { display: block; font-size: 12px; opacity: .72; margin: 8px 0 4px; }
+    input, select, textarea {
+      width: 100%; padding: 8px 10px; border-radius: 8px; font: inherit;
+      border: 1px solid var(--aicode-border, rgba(128,128,128,.35));
+      background: var(--aicode-input-bg, transparent); color: inherit;
+    }
+    textarea { resize: vertical; }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; align-items: center; }
+    button {
+      font: inherit; padding: 7px 13px; border-radius: 9px; cursor: pointer;
+      border: 1px solid var(--aicode-border, rgba(128,128,128,.35));
+      background: transparent; color: inherit;
+    }
+    button.primary { background: var(--aicode-accent, #3b82f6); border-color: transparent; color: #fff; }
+    button.small { padding: 4px 9px; font-size: 12px; }
+    button.danger { color: var(--aicode-danger, #dc2626); }
+    button:disabled { opacity: .55; }
+    .muted { font-size: 12px; opacity: .6; }
+    .check { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 13px; }
+    .check input { width: auto; }
+    .hid { display: none; }
+    .key-item {
+      border: 1px solid var(--aicode-border, rgba(128,128,128,.22));
+      border-radius: 10px; padding: 9px 10px; margin-bottom: 8px;
+    }
+    .key-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .key-name { font-family: ui-monospace, Menlo, monospace; font-size: 12.5px; }
+    .badge { font-size: 11px; padding: 1px 7px; border-radius: 999px; border: 1px solid currentColor; }
+    .badge.ok { color: var(--aicode-success, #16a34a); }
+    .badge.cool { color: #d97706; }
+    .badge.off { color: var(--aicode-border, #9ca3af); }
+    .key-meta { font-size: 11.5px; opacity: .62; margin-top: 4px; word-break: break-all; }
+    .key-actions { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+    .result img { width: 100%; border-radius: 10px; display: block; margin-top: 10px; }
+    .status-line { font-size: 12.5px; }
+    .ok { color: var(--aicode-success, #16a34a); }
+    .err { color: var(--aicode-danger, #dc2626); }
+    pre.logs {
+      margin: 0; padding: 10px; border-radius: 9px; overflow: auto; max-height: 200px;
+      font-size: 11.5px; line-height: 1.5; white-space: pre-wrap;
+      background: var(--aicode-surface, rgba(128,128,128,.08));
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="head">
+      <h2>商汤生图</h2>
+      <div class="head-actions">
+        <button id="btnRefresh">刷新</button>
+        <button id="btnRestart" class="primary">重启</button>
+      </div>
+    </header>
+
+    <section id="cards" class="cards"></section>
+
+    <div class="block">
+      <div class="block-head">
+        <span class="block-title">Key 池</span>
+        <div class="row" style="margin:0">
+          <select id="strategy" style="width:auto">
+            <option value="round-robin">轮换（均匀分摊）</option>
+            <option value="priority">优先（按顺序用第一个可用）</option>
+          </select>
+          <button id="btnClearCooldown" class="small">清除全部冷却</button>
+        </div>
+      </div>
+      <div id="keyList" class="muted">加载中…</div>
+
+      <label>添加 Key</label>
+      <div class="row">
+        <input id="newKey" type="password" autocomplete="off" spellcheck="false" placeholder="sk-…" style="flex:2 1 240px">
+        <input id="newLabel" type="text" spellcheck="false" placeholder="备注（可选）" style="flex:1 1 120px">
+        <button id="btnAddKey" class="primary">添加</button>
+      </div>
+      <div class="muted" id="addState"></div>
+    </div>
+
+    <div class="block">
+      <span class="block-title">接入信息</span>
+      <label>Base URL</label>
+      <div class="row" style="margin-top:4px">
+        <input id="baseUrl" readonly style="flex:1 1 240px">
+        <button id="btnCopyUrl" class="small">复制</button>
+      </div>
+      <label>API Key（提供商里填这个，随便一个非空值即可）</label>
+      <div class="row" style="margin-top:4px">
+        <input id="providerKey" readonly style="flex:1 1 240px">
+        <button id="btnCopyKey" class="small">复制</button>
+      </div>
+      <div class="muted" style="margin-top:8px">生图用法：在「设置 → 提供商」里选择「商汤生图」，直接说需求就能出图（模型 sensenova-u1.5-lite / sensenova-u1-fast）；图片生成完成后会先在聊天里给你预览，你确认满意再决定上不上传，不满意就让它重生一版。</div>
+
+      <div class="block" style="margin-top:10px;background:transparent">
+        <span class="block-title">让图片直接显示在聊天里</span>
+        <div class="muted" style="margin-top:6px">① 在「设置 → 提供商 → 该模型」里打开「图片输出」，并把该模型选为生图模型；客户端会通过 /v1/images/generations 出图并渲染成图片卡片。</div>
+        <div class="muted" style="margin-top:4px">② 或者用对话模型（sensenova-6.8-flash）说「画一张雪山」，助手会调 generate_image 工具，再用 sendFile 把图片发出来。</div>
+        <div class="muted" style="margin-top:4px">直接给生图模型发对话文本时，客户端不认正文里的图片，只能看到文字；请优先用上面两种方式。</div>
+      </div>
+
+      <label for="chatImageMode" style="margin-top:12px">聊天内出图方式</label>
+      <select id="chatImageMode">
+        <option value="local">本地短地址（推荐，消息轻）</option>
+        <option value="inline">内嵌 base64（必定显示，消息较长）</option>
+      </select>
+      <div class="muted">本地地址模式下若聊天里看不到图，切到内嵌模式重试。</div>
+      <div class="check"><input id="exposeImage" type="checkbox"><span>在模型列表里暴露生图模型</span></div>
+      <div class="muted">默认关闭。开启后客户端会把生图模型当对话模型做连通性测试，每次测试都会真生成一张图（20–30 秒），看起来像网关很慢。</div>
+    </div>
+
+    <div class="block">
+      <span class="block-title">生图测试（真实调用）</span>
+      <textarea id="prompt" rows="3" spellcheck="false">一只白色毛绒绒的海豹宝宝漂浮在平静海面上，柔和晨光，写实摄影风格</textarea>
+      <div class="row" style="margin-top:8px">
+        <select id="testModel" style="flex:1 1 200px">
+          <option value="sensenova-u1.5-lite">u1.5-lite</option>
+          <option value="sensenova-u1.5-fast">u1.5-fast</option>
+          <option value="sensenova-u1-fast">u1-fast</option>
+        </select>
+        <input id="testSize" value="1024x1024" style="flex:0 1 130px" spellcheck="false">
+        <button id="btnTest" class="primary">生成图片</button>
+      </div>
+      <div id="testState" class="status-line"></div>
+      <div id="result" class="result"></div>
+    </div>
+
+    <div class="block">
+      <span class="block-title">最近日志</span>
+      <pre id="logs" class="logs">加载中…</pre>
+    </div>
+  </main>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    let statusCache = null;
+    let configCache = null;
+
+    function toast(text) {
+      try {
+        aicode.toast(String(text));
+      } catch {
+        /* 宿主未提供 toast */
+      }
+    }
+
+    async function copy(text) {
+      try {
+        await aicode.clipboard.write(String(text));
+        toast('已复制');
+      } catch {
+        toast('复制失败，请手动选中');
+      }
+    }
+
+    async function call(handler, args) {
+      try {
+        return await aicode.invoke(handler, args || {});
+      } catch (error) {
+        return { ok: false, message: String((error && error.message) || error) };
+      }
+    }
+
+    function card(key, value) {
+      return `<div class="card"><div class="k">${key}</div><div class="v">${value}</div></div>`;
+    }
+
+    function renderStatus(status, config) {
+      statusCache = status;
+      configCache = config;
+      const running = status && status.running;
+      const responsive = status && status.responsive;
+      const keys = (config && Array.isArray(config.keys) && config.keys) || (status && status.keys) || [];
+      const total = (config && config.keys_total) ?? (status && status.keysTotal) ?? keys.length;
+      const available = (config && config.keys_available) ?? (status && status.keysAvailable) ?? 0;
+
+      $('cards').innerHTML = [
+        card('状态', `<span class="${running && responsive ? 'ok' : 'err'}">${!running ? '未运行' : responsive ? '运行中' : '启动中'}</span>`),
+        card('可用 Key', `${available} / ${total}`),
+        card('策略', ((config && config.key_strategy) || (status && status.keyStrategy)) === 'priority' ? '优先顺序' : '轮换'),
+        card('上游', (status && status.upstream) || 'token.sensenova.cn/v1'),
+        card('默认生图', (config && config.default_image_model) || (status && status.defaultImageModel) || '-'),
+        card('默认对话', (config && config.default_chat_model) || (status && status.defaultChatModel) || '-'),
+      ].join('');
+
+      $('baseUrl').value = (config && config.base_url) || (status && status.baseUrl) || '';
+      $('providerKey').value = (config && config.provider_key) || (status && status.providerKey) || '';
+      $('exposeImage').checked = Boolean(config && config.expose_image_models);
+      $('chatImageMode').value = (config && config.chat_image_mode) === 'inline' ? 'inline' : 'local';
+      $('strategy').value = ((config && config.key_strategy) || (status && status.keyStrategy)) === 'priority' ? 'priority' : 'round-robin';
+
+      if (!keys.length) {
+        $('keyList').innerHTML = '<div class="muted">还没有 Key。在下面添加，可以加多个，网关会自动轮换。</div>';
+      } else {
+        $('keyList').innerHTML = keys
+          .map((item) => {
+            const badge = !item.enabled
+              ? '<span class="badge off">已停用</span>'
+              : item.cooling
+                ? `<span class="badge cool">冷却 ${item.cooldown_seconds}s</span>`
+                : '<span class="badge ok">正常</span>';
+            const meta = [
+              `成功 ${item.successes || 0} 次`,
+              `失败 ${item.fails || 0} 次`,
+              item.last_error ? `最近：${item.last_error}` : '',
+            ].filter(Boolean).join(' · ');
+            return `<div class="key-item">
+              <div class="key-top">
+                <span class="key-name">${item.masked}${item.label ? ` · ${item.label}` : ''}</span>
+                ${badge}
+              </div>
+              <div class="key-meta">${meta}</div>
+              <div class="key-actions">
+                <button class="small" data-act="${item.enabled ? 'disable' : 'enable'}" data-id="${item.id}">${item.enabled ? '停用' : '启用'}</button>
+                <button class="small" data-act="reset" data-id="${item.id}">清除冷却</button>
+                <button class="small danger" data-act="remove" data-id="${item.id}">删除</button>
+              </div>
+            </div>`;
+          })
+          .join('');
+      }
+
+      $('logs').textContent = status && Array.isArray(status.logs) && status.logs.length ? status.logs.join('\n') : '暂无日志';
+    }
+
+    async function refresh() {
+      $('cards').innerHTML = card('状态', '读取中…');
+      const status = await call('ui.status');
+      if (!status || status.ok === false) {
+        $('cards').innerHTML = card('状态', `<span class="err">${(status && (status.message || status.error)) || '无法读取状态'}</span>`);
+        return;
+      }
+      const config = await call('ui.config', { method: 'GET' });
+      renderStatus(status, config && config.ok !== false ? config : null);
+    }
+
+    async function keyAction(action, id) {
+      const result = await call('ui.keys', { method: 'POST', body: { action, id } });
+      if (result && result.ok) {
+        toast(action === 'remove' ? '已删除' : action === 'reset' ? '已清除冷却' : '已更新');
+      } else {
+        toast((result && (result.message || (result.error && result.error.message))) || '操作失败');
+      }
+      refresh();
+    }
+
+    $('keyList').addEventListener('click', (event) => {
+      const target = event.target.closest('button[data-act]');
+      if (!target) return;
+      keyAction(target.dataset.act, target.dataset.id);
+    });
+
+    $('btnAddKey').addEventListener('click', async () => {
+      const key = $('newKey').value.trim();
+      if (!key) {
+        toast('先粘贴 Key');
+        return;
+      }
+      $('btnAddKey').disabled = true;
+      const result = await call('ui.keys', { method: 'POST', body: { action: 'add', key, label: $('newLabel').value.trim() } });
+      $('btnAddKey').disabled = false;
+      if (result && result.ok) {
+        $('newKey').value = '';
+        $('newLabel').value = '';
+        $('addState').textContent = result.duplicate ? '这个 Key 已在池里' : `已添加，当前 ${result.total} 个`;
+        $('addState').className = 'muted ok';
+        refresh();
+      } else {
+        $('addState').textContent = (result && (result.message || (result.error && result.error.message))) || '添加失败';
+        $('addState').className = 'muted err';
+      }
+    });
+
+    $('strategy').addEventListener('change', async () => {
+      const result = await call('ui.config', { method: 'POST', body: { keyStrategy: $('strategy').value } });
+      toast(result && result.ok ? '策略已保存' : '保存失败');
+      refresh();
+    });
+
+    $('btnClearCooldown').addEventListener('click', async () => {
+      const result = await call('ui.keys', { method: 'POST', body: { action: 'clear_cooldown' } });
+      toast(result && result.ok ? '已清除全部冷却' : '操作失败');
+      refresh();
+    });
+
+    $('btnCopyUrl').addEventListener('click', () => copy($('baseUrl').value));
+    $('btnCopyKey').addEventListener('click', () => copy($('providerKey').value));
+
+    $('exposeImage').addEventListener('change', async () => {
+      const result = await call('ui.config', { method: 'POST', body: { exposeImageModels: $('exposeImage').checked } });
+      toast(result && result.ok ? '已保存，回提供商重新拉取模型生效' : '保存失败');
+      refresh();
+    });
+
+    $('chatImageMode').addEventListener('change', async () => {
+      const result = await call('ui.config', { method: 'POST', body: { chatImageMode: $('chatImageMode').value } });
+      toast(result && result.ok ? '已保存，下次出图生效' : '保存失败');
+      refresh();
+    });
+
+    $('btnRefresh').addEventListener('click', refresh);
+
+    $('btnRestart').addEventListener('click', async () => {
+      $('btnRestart').disabled = true;
+      $('btnRestart').textContent = '重启中…';
+      const result = await call('ui.restart');
+      $('btnRestart').disabled = false;
+      $('btnRestart').textContent = '重启';
+      toast(result && result.ok ? '网关已重启' : '重启未就绪，稍后刷新');
+      refresh();
+    });
+
+    $('btnTest').addEventListener('click', async () => {
+      const prompt = $('prompt').value.trim();
+      if (!prompt) {
+        toast('先写一段图像描述');
+        return;
+      }
+      $('btnTest').disabled = true;
+      $('testState').textContent = '生成中，通常 15–40 秒…';
+      $('testState').className = 'status-line muted';
+      $('result').innerHTML = '';
+      const result = await call('ui.selfcheck', {
+        body: { prompt, model: $('testModel').value, size: $('testSize').value.trim() || '1024x1024' },
+      });
+      $('btnTest').disabled = false;
+      if (result && result.ok) {
+        $('testState').textContent = `${result.model} · ${result.size} · ${Math.round(result.bytes / 1024)} KB · ${result.elapsed_ms} ms`;
+        $('testState').className = 'status-line ok';
+        $('result').innerHTML = `<img src="${result.preview_url || result.url}" alt="生成结果"><div class="muted" style="margin-top:6px;word-break:break-all">已保存：${result.saved}</div>`;
+      } else {
+        $('testState').textContent = (result && (result.message || (result.error && result.error.message) || result.error)) || '生成失败';
+        $('testState').className = 'status-line err';
+      }
+      refresh();
+    });
+
+    refresh();
+  </script>
+</body>
+</html>
